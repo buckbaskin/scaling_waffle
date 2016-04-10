@@ -1,6 +1,7 @@
-from geometry_msgs.msg import Pose, Quaternion
-from sensor_msgs.msg import LaserScan
-from waffle_common import Planner
+from collections import deque
+from geometry_msgs.msg import Pose# , Quaternion
+# from sensor_msgs.msg import LaserScan
+from waffle.waffle_common import Planner
 
 class Potential(Planner):
     def __init__(self):
@@ -26,7 +27,7 @@ class Potential(Planner):
         Output:
             Quaternion
         '''
-        return Quaternion()
+        return pose.orientation
 
     def magnitude(self, pose):
         '''
@@ -37,7 +38,14 @@ class Potential(Planner):
         Output:
             float
         '''
-        return 0.0
+        return abs(pose.position.x)
+
+    def generate_plan(self, start, goal):
+        deck = deque()
+        deck.append(start)
+        deck.append(Pose())
+        deck.append(goal)
+        return deck
 
 
 class NaivePotential(Potential):
