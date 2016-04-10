@@ -1,9 +1,11 @@
+import math
+
 from collections import deque
 from geometry_msgs.msg import Pose, Quaternion
 from sensor_msgs.msg import LaserScan
 from waffle_common import Planner
 
-robot_radius = .5
+ROBOT_RADIUS = .5
 
 class ObstacleMap(object):
     def __init__(self, minx, maxx, miny, maxy):
@@ -30,7 +32,7 @@ class ObstacleMap(object):
             return None
         if pose.position.y < self.miny:
             return None
-        if children = None:
+        if self.children is None:
             # then there are no sub-maps
             self.obstacle_list.append((pose, radius,))
             if len(self.obstacle_list) > 20:
@@ -38,7 +40,7 @@ class ObstacleMap(object):
         else:
             for vertical in ['top', 'middle', 'bottom']:
                 for horizontal in ['left', 'center', 'right']:
-                    children[vertical][horizontal].add_obstacle(pose, radius)
+                    self.children[vertical][horizontal].add_obstacle(pose, radius)
 
     def sub_divide(self):
         self.children = {'top':{'left':ObstacleMap(self.minx, self.midx,
@@ -52,7 +54,7 @@ class ObstacleMap(object):
                                   'center': ObstacleMap(self.minx/2.0+self.midx/2.0,
                                     self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0),
                                   'right': ObstacleMap(self.midx, self.maxx,
-                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0)}
+                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0)},
                         'bottom':{'left':ObstacleMap(self.minx, self.midx,
                                     self.miny, self.midy),
                                   'center': ObstacleMap(self.minx/2.0+self.midx/2.0,
@@ -60,7 +62,7 @@ class ObstacleMap(object):
                                   'right': ObstacleMap(self.midx, self.maxx,
                                     self.miny, self.midy)}}
         for obstacle in obstacle_list:
-            # this will add it to the children
+            # this will add it to self.children
             self.add_obstacle(obstacle[0], obstacle[1])
         self.obstacle_list = None
 
@@ -75,16 +77,16 @@ class ObstacleMap(object):
         if pose.position.y < miny:
             return False
 
-        if children is None:
+        if self.children is None:
             for obstacle in obstacle_list:
                 obstacle_pose = obstacle[0]
                 obstacle_radius = obstacle[1]
-                if self.distance_function(pose, obstacle_pose) < obstacle_radius + robot_radius:
+                if self.distance_function(pose, obstacle_pose) < obstacle_radius + ROBOT_RADIUS:
                     return True
         else:
             for vertical in ['top', 'middle', 'bottom']:
                 for horizontal in ['left', 'center', 'right']:
-                    if children[vertical][horizontal].check_collision(pose):
+                    if self.children[vertical][horizontal].check_collision(pose):
                         return True
         return False
 
