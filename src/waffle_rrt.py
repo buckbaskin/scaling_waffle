@@ -15,26 +15,21 @@ from waffle.rrt import RRTBase
 # from waffle import rrt # this is not valid by design right now
 
 classic_waffle = RRTBase()
-last_pose = Pose()
+classic_waffle.last_pose = Pose()
 
 def goal_cb(msg):
     classic_waffle.set_goal(msg)
 
 def odom_cb(msg):
-    last_pose = msg.pose.pose
+    classic_waffle.last_pose = msg.pose.pose
 
 def laser_cb(msg):
-    classic_waffle.new_scan(last_pose, msg)
+    classic_waffle.new_scan(classic_waffle.last_pose, msg)
 
 def plan_srv(srv):
     goal = srv.goal
     start = srv.start
     return PlanResponse(classic_waffle.generate_plan(start, goal))
-
-'''
-The RRT should be iterating continually in the background, and then when it sees a new obstacle, 
-it prunes the nodes that are inside it and replans if need be
-'''
 
 if __name__ == '__main__':
     rospy.init_node('waffle_potential')

@@ -12,8 +12,8 @@ from scaling_waffle.srv import PotentialField, PotentialFieldResponse
 from scaling_waffle.srv import Plan, PlanResponse
 from sensor_msgs.msg import LaserScan
 from waffle.potential import NaivePotential
-from waffle.potential import SavingPotential
-from waffle.potential import ImprovedPotential
+# from waffle.potential import SavingPotential
+# from waffle.potential import ImprovedPotential
 
 # from waffle import potential # this is not valid by design right now
 
