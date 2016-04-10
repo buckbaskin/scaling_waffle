@@ -1,3 +1,4 @@
+geometry_msgs/Pose pose
 ---
 geometry_msgs/Quaternion orientation
 float64 magnitude

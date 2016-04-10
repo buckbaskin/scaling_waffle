@@ -14,7 +14,7 @@ from waffle.rrt import RRTBase
 
 # from waffle import rrt # this is not valid by design right now
 
-classic_waffle = RRTbase()
+classic_waffle = RRTBase()
 last_pose = Pose()
 
 def goal_cb(msg):

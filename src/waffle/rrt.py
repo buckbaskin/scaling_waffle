@@ -61,24 +61,24 @@ class ObstacleMap(object):
                                     self.miny, self.midy),
                                   'right': ObstacleMap(self.midx, self.maxx,
                                     self.miny, self.midy)}}
-        for obstacle in obstacle_list:
+        for obstacle in self.obstacle_list:
             # this will add it to self.children
             self.add_obstacle(obstacle[0], obstacle[1])
         self.obstacle_list = None
 
 
     def check_collision(self, pose):
-        if pose.position.x > maxx:
+        if pose.position.x > self.maxx:
             return False
-        if pose.position.y > maxy:
+        if pose.position.y > self.maxy:
             return False
-        if pose.position.x < minx:
+        if pose.position.x < self.minx:
             return False
-        if pose.position.y < miny:
+        if pose.position.y < self.miny:
             return False
 
         if self.children is None:
-            for obstacle in obstacle_list:
+            for obstacle in self.obstacle_list:
                 obstacle_pose = obstacle[0]
                 obstacle_radius = obstacle[1]
                 if self.distance_function(pose, obstacle_pose) < obstacle_radius + ROBOT_RADIUS:
@@ -99,7 +99,7 @@ class RRTNode(object):
 
 class RRTBase(Planner):
     def __init__(self):
-        super(RRT, self).__init__()
+        super(RRTBase, self).__init__()
 
         self.nodes = {}
 

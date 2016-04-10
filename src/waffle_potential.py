@@ -30,7 +30,10 @@ def laser_cb(msg):
     classic_waffle.new_scan(last_pose, msg)
 
 def potential_srv(srv):
-    return PotentialFieldResponse(classic_waffle.direction(), classic_waffle.magnitude())
+    pfr = PotentialFieldResponse()
+    pfr.direction = classic_waffle.direction(srv.pose)
+    pfr.magnitude = classic_waffle.magnitude(srv.pose)
+    return pfr
 
 def plan_srv(srv):
     goal = srv.goal
