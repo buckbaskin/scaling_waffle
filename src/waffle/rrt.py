@@ -1,9 +1,9 @@
 import math
 
 from collections import deque
-from geometry_msgs.msg import Pose, Quaternion
-from sensor_msgs.msg import LaserScan
-from waffle_common import Planner
+from geometry_msgs.msg import Pose
+# from sensor_msgs.msg import LaserScan
+from waffle.waffle_common import Planner
 
 ROBOT_RADIUS = .5
 
@@ -105,7 +105,7 @@ class RRTBase(Planner):
 
     def set_root(self, pose):
         self.nodes = {}
-        self.nodes[0] = RRTNode(Pose, None)
+        self.nodes[0] = RRTNode(pose, None)
 
     def new_scan(self, pose, scan):
         '''
@@ -133,6 +133,7 @@ class RRTBase(Planner):
 
     def find_nearest_node(self, pose):
         '''
+        kd-tree?
         Input:
             Pose
         Output
@@ -149,7 +150,9 @@ class RRTBase(Planner):
         Output:
             list of int
         '''
-        return [0]
+        # start = self.nodes[start_id]
+        # goal = self.nodes[goal_id]
+        return [start_id, 0, goal_id]
 
     def smooth_path(self, path):
         '''
@@ -167,5 +170,8 @@ class RRTBase(Planner):
         '''
         Based on the current tree, generate a plan for reaching the goal pose
         '''
-        return deque()
-
+        deck = deque()
+        deck.append(start)
+        deck.append(Pose())
+        deck.append(goal)
+        return deck
