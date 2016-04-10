@@ -4,18 +4,7 @@ from waffle_common import Planner
 
 class Potential(Planner):
     def __init__(self):
-        self.goal = Pose()
-        
-
-    def set_goal(self, pose):
-        '''
-        Set the goal/global minimum for the potential field
-        Input:
-            Pose
-        Output:
-            None
-        '''
-        self.goal = pose
+        super(Potential, self).__init__()
 
     def new_scan(self, pose, scan):
         '''
@@ -59,7 +48,8 @@ class NaivePotential(Potential):
     This will likely fail without a 360 degree scan, because it will only see
     obstacles in front of it, which would "push" it backwards.
     '''
-    pass
+    def __init__(self):
+        super(NaivePotential, self).__init__()
 
 
 class SavingPotential(Potential):
@@ -71,7 +61,8 @@ class SavingPotential(Potential):
     obstacles even if a laser scan has shown the obstacle to have moved. With
     static obstacles, this should outperform the NaivePotential.
     '''
-    pass
+    def __init__(self):
+        super(SavingPotential, self).__init__()
 
 
 class ImprovedPotential(Potential):
@@ -81,6 +72,7 @@ class ImprovedPotential(Potential):
     improve its completeness, or at least the variety of geometries that it can 
     handle without getting caught in local minima.
     '''
-    pass
+    def __init__(self):
+        super(ImprovedPotential, self).__init__()
 
 del Potential

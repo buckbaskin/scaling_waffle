@@ -1,10 +1,14 @@
 from collections import deque
+from geometry_msgs.msg import Pose
 
 class Planner(object):
 	'''
 	A generic planner class to use as a subclass to the potential and RRT
 	algorithms
 	'''
+	def __init__(self):
+		self.goal = Pose()
+
 	def generate_plan(self, start, goal):
 		'''
 		Input:
@@ -16,3 +20,13 @@ class Planner(object):
 			should replan if the deque runs out of items
 		'''
 		return deque()
+
+	def set_goal(self, pose):
+        '''
+        Set the goal/global minimum for the potential field
+        Input:
+            Pose
+        Output:
+            None
+        '''
+        self.goal = pose
