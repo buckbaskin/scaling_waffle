@@ -3,6 +3,82 @@ from geometry_msgs.msg import Pose, Quaternion
 from sensor_msgs.msg import LaserScan
 from waffle_common import Planner
 
+robot_radius = .5
+
+class ObstacleMap(object):
+    def __init__(self, minx, maxx, miny, maxy):
+        self.children = None
+        self.obstacle_list = []
+        self.minx = minx
+        self.maxx = maxx
+        self.midx = minx/2+maxx/2
+        self.miny = miny
+        self.maxy = maxy
+        self.midy = miny/2+maxy/2
+
+    def distance_function(self, pose1, pose2):
+        return math.sqrt(math.pow(pose1.position.x-pose2.position.x, 2) +
+            math.pow(pose1.position.y-pose2.position.y, 2) +
+            math.pow(pose1.position.z-pose2.position.z, 2))
+
+    def add_obstacle(self, pose, radius):
+        if pose.position.x > self.maxx:
+            return None
+        if pose.position.y > self.maxy:
+            return None
+        if pose.position.x < self.minx:
+            return None
+        if pose.position.y < self.miny:
+            return None
+        if children = None:
+            # then there are no sub-maps
+            self.obstacle_list.append((pose, radius,))
+            if len(self.obstacle_list) > 20:
+                self.sub_divide()
+        else:
+            for vertical in ['top', 'middle', 'bottom']:
+                for horizontal in ['left', 'center', 'right']:
+                    children[vertical][horizontal].add_obstacle(pose, radius)
+
+    def sub_divide(self):
+        self.children = {'top':{'left':ObstacleMap(self.minx, self.midx,
+                                    self.midy, self.maxy),
+                                'center': ObstacleMap(self.minx/2.0+self.midx/2.0,
+                                    self.midy, self.maxy),
+                                'right': ObstacleMap(self.midx, self.maxx,
+                                    self.midy, self.maxy)},
+                        'middle':{'left':ObstacleMap(self.minx, self.midx,
+                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0),
+                                  'center': ObstacleMap(self.minx/2.0+self.midx/2.0,
+                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0),
+                                  'right': ObstacleMap(self.midx, self.maxx,
+                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0)}
+                        'bottom':{'left':ObstacleMap(self.minx, self.midx,
+                                    self.miny, self.midy),
+                                  'center': ObstacleMap(self.minx/2.0+self.midx/2.0,
+                                    self.miny, self.midy),
+                                  'right': ObstacleMap(self.midx, self.maxx,
+                                    self.miny, self.midy)}}
+        for obstacle in obstacle_list:
+            # this will add it to the children
+            self.add_obstacle(obstacle[0], obstacle[1])
+        self.obstacle_list = None
+
+
+    def check_collision(self, pose):
+        if children is None:
+            for obstacle in obstacle_list:
+                obstacle_pose = obstacle[0]
+                obstacle_radius = obstacle[1]
+                if self.distance_function(pose, obstacle_pose) < obstacle_radius + robot_radius:
+                    return True
+        else:
+            for vertical in ['top', 'middle', 'bottom']:
+                for horizontal in ['left', 'center', 'right']:
+                    if children[vertical][horizontal].check_collision(pose):
+                        return True
+        return False
+
 class RRTNode(object):
     def __init__(self, pose, parent):
         self.pose = pose
