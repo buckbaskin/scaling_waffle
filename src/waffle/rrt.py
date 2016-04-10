@@ -96,6 +96,9 @@ class RRTNode(object):
         self.parent = int(parent)
         self.children = []
 
+    def add_child(self, pose):
+        self.children.append(pose)
+
 
 class RRTBase(Planner):
     def __init__(self):

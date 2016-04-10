@@ -32,8 +32,8 @@ def plan_srv(srv):
     return PlanResponse(classic_waffle.generate_plan(start, goal))
 
 if __name__ == '__main__':
-    rospy.init_node('waffle_potential')
-    pot_srv = rospy.Service('/potential/plan', Plan, plan_srv)
+    rospy.init_node('waffle_rrt')
+    pot_srv = rospy.Service('/rrt/plan', Plan, plan_srv)
     odom_sub = rospy.Subscriber('/odom', Odometry, odom_cb)
     laser_sub = rospy.Subscriber('/laser_scan', LaserScan, laser_cb)
 
