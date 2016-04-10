@@ -31,6 +31,11 @@ def plan_srv(srv):
     start = srv.start
     return PlanResponse(classic_waffle.generate_plan(start, goal))
 
+'''
+The RRT should be iterating continually in the background, and then when it sees a new obstacle, 
+it prunes the nodes that are inside it and replans if need be
+'''
+
 if __name__ == '__main__':
     rospy.init_node('waffle_potential')
     pot_srv = rospy.Service('/potential/plan', Plan, plan_srv)
