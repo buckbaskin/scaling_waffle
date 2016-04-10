@@ -18,16 +18,16 @@ from waffle.potential import ImprovedPotential
 # from waffle import potential # this is not valid by design right now
 
 classic_waffle = NaivePotential()
-last_pose = Pose()
+classic_waffle.last_pose = Pose()
 
 def goal_cb(msg):
     classic_waffle.set_goal(msg)
 
 def odom_cb(msg):
-    last_pose = msg.pose.pose
+    classic_waffle.last_pose = msg.pose.pose
 
 def laser_cb(msg):
-    classic_waffle.new_scan(last_pose, msg)
+    classic_waffle.new_scan(classic_waffle.last_pose, msg)
 
 def potential_srv(srv):
     pfr = PotentialFieldResponse()
