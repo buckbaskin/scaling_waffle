@@ -66,6 +66,15 @@ class ObstacleMap(object):
 
 
     def check_collision(self, pose):
+        if pose.position.x > maxx:
+            return False
+        if pose.position.y > maxy:
+            return False
+        if pose.position.x < minx:
+            return False
+        if pose.position.y < miny:
+            return False
+
         if children is None:
             for obstacle in obstacle_list:
                 obstacle_pose = obstacle[0]
