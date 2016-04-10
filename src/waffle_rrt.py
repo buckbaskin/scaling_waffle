@@ -12,7 +12,7 @@ from scaling_waffle.srv import Plan, PlanResponse
 from sensor_msgs.msg import LaserScan
 from waffle.rrt import RRT
 
-# from waffle import potential # this is not valid by design right now
+# from waffle import rrt # this is not valid by design right now
 
 classic_waffle = RRT()
 last_pose = Pose()
