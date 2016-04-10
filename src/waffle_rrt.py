@@ -10,11 +10,11 @@ from geometry_msgs.msg import Pose
 from nav_msgs.msg import Odometry
 from scaling_waffle.srv import Plan, PlanResponse
 from sensor_msgs.msg import LaserScan
-from waffle.rrt import RRT
+from waffle.rrt import RRTBase
 
 # from waffle import rrt # this is not valid by design right now
 
-classic_waffle = RRT()
+classic_waffle = RRTbase()
 last_pose = Pose()
 
 def goal_cb(msg):
@@ -41,3 +41,6 @@ if __name__ == '__main__':
     pot_srv = rospy.Service('/potential/plan', Plan, plan_srv)
     odom_sub = rospy.Subscriber('/odom', Odometry, odom_cb)
     laser_sub = rospy.Subscriber('/laser_scan', LaserScan, laser_cb)
+
+    while not rospy.is_shutdown():
+        classic_waffle.expand_tree()
