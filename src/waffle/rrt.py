@@ -25,6 +25,11 @@ class RRTBase(Planner):
         based on a new set of scan data collected at a given pose, update
         obstacles, then update/prune the tree
 
+        - Generate new obstacles (every scan is a small obstacle)
+        - For each new obstacle, find the nearest tree node. If the tree node is
+        in the obstacle, prune it. Repeat until there are no nodes to prune for
+        that obstacle
+
         Input:
             Pose
             LaserScan
@@ -63,7 +68,7 @@ class RRTBase(Planner):
         '''
         For a given path, try to cut corners and find an easier path than just
         following the RRT
-        
+
         Input:
             list of int
         Output:
