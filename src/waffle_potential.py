@@ -17,32 +17,32 @@ from waffle.potential import NaivePotential
 
 # from waffle import potential # this is not valid by design right now
 
-classic_waffle = NaivePotential()
-classic_waffle.last_pose = Pose()
+CLASSIC_WAFFLE = NaivePotential()
+CLASSIC_WAFFLE.last_pose = Pose()
 
 def goal_cb(msg):
-    classic_waffle.set_goal(msg)
+    CLASSIC_WAFFLE.set_goal(msg)
 
 def odom_cb(msg):
-    classic_waffle.last_pose = msg.pose.pose
+    CLASSIC_WAFFLE.last_pose = msg.pose.pose
 
 def laser_cb(msg):
-    classic_waffle.new_scan(classic_waffle.last_pose, msg)
+    CLASSIC_WAFFLE.new_scan(CLASSIC_WAFFLE.last_pose, msg)
 
 def potential_srv(srv):
     pfr = PotentialFieldResponse()
-    pfr.direction = classic_waffle.direction(srv.pose)
-    pfr.magnitude = classic_waffle.magnitude(srv.pose)
+    pfr.direction = CLASSIC_WAFFLE.direction(srv.pose)
+    pfr.magnitude = CLASSIC_WAFFLE.magnitude(srv.pose)
     return pfr
 
 def plan_srv(srv):
     goal = srv.goal
     start = srv.start
-    return PlanResponse(classic_waffle.generate_plan(start, goal))
+    return PlanResponse(CLASSIC_WAFFLE.generate_plan(start, goal))
 
 if __name__ == '__main__':
     rospy.init_node('waffle_potential')
-    pot_srv = rospy.Service('/potential/field', PotentialField, potential_srv)
-    pot_srv = rospy.Service('/potential/plan', Plan, plan_srv)
-    odom_sub = rospy.Subscriber('/odom', Odometry, odom_cb)
-    laser_sub = rospy.Subscriber('/laser_scan', LaserScan, laser_cb)
+    POTEN_SRV = rospy.Service('/potential/field', PotentialField, potential_srv)
+    PLAN_SRV = rospy.Service('/potential/plan', Plan, plan_srv)
+    ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
+    LASER_SUB = rospy.Subscriber('/laser_scan', LaserScan, laser_cb)

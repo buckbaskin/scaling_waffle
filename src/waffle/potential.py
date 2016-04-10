@@ -9,7 +9,8 @@ class Potential(Planner):
 
     def new_scan(self, pose, scan):
         '''
-        based on a new set of scan data collected at a given pose, update the potential field
+        based on a new set of scan data collected at a given pose, update the
+        potential field
         Input:
             Pose
             LaserScan
@@ -20,7 +21,8 @@ class Potential(Planner):
 
     def direction(self, pose):
         '''
-        Gives the direction of the potential field for a given pose relative to the pose
+        Gives the direction of the potential field for a given pose relative to
+        the pose
 
         Input:
             Pose
@@ -77,7 +79,7 @@ class ImprovedPotential(Potential):
     '''
     An attempt to improve the performance of the potential field algorithm,
     (likely Saving) by trying to avoid local minima, and make other changes to
-    improve its completeness, or at least the variety of geometries that it can 
+    improve its completeness, or at least the variety of geometries that it can
     handle without getting caught in local minima.
     '''
     def __init__(self):
