@@ -4,6 +4,7 @@ from collections import deque
 from geometry_msgs.msg import Pose# , Quaternion
 from math import sin, cos
 # from sensor_msgs.msg import LaserScan
+from utils import quaternion_to_heading, heading_to_quaternion
 from waffle.waffle_common import Planner
 
 class Potential(Planner):
@@ -91,17 +92,27 @@ class NaivePotential(Potential):
         trailing_min_index = -1
         for range_ in scan.ranges:
             if range_ < scan.range_max - .01:
-                if range_ < trailing_min:
-                    trailing_min = range_
-                    trailing_min_index = index + 0
+                self.obstacles.append((range_, angle,)) # (r, theta,)
             else:
                 # range is out to max, no obstacle
-                self.obstacles.append((trailing_min, min_+index*angle_inc,)) # range, bearing
-                trailing_min = scan.range_max
-            # dx = range_*cos(angle)
-            # dy = range_*sin(angle)
+                pass
             angle += angle_inc
             index += 1
+
+        self.transform_obstacles(pose)
+
+    def transform_obstacles(self, pose):
+        # take a list of r-theta obstacles and convert them to x-y, so they can
+        #   be used for any position instead of just the last odom
+        heading = quaternion_to_heading(pose.orientation)
+        for i in xrange(0, len(self.obstacles)):
+            old_obstacle = self.obstacles[i]
+            x = pose.position.x + old_obstacle[0]*cos(old_obstacle[1]+heading)
+            y = pose.position.y + old_obstacle[0]*sin(old_obstacle[1]+heading)
+            self.obstacles[i] = (x,y,)
+
+    def calc_potential(self, pose):
+        return (1,0,0,)
 
     def direction(self, pose):
         '''
@@ -113,7 +124,8 @@ class NaivePotential(Potential):
         Output:
             Quaternion
         '''
-        return pose.orientation
+        vector = self.calc_potential(pose)
+        return math.atan2(vector[1], vector[0])
 
     def magnitude(self, pose):
         '''
@@ -124,7 +136,11 @@ class NaivePotential(Potential):
         Output:
             float
         '''
-        return abs(pose.position.x)
+        vector = self.calc_potential(pose)
+        accum = 0
+        for i in xrange(0, len(vector)):
+            accum += vector[i]*vector[i]
+        return math.sqrt(accum)
 
     def generate_plan(self, start, goal):
         #TODO(buckbaskin): implement this
