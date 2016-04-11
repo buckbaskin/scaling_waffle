@@ -1,5 +1,8 @@
+import math
+
 from collections import deque
 from geometry_msgs.msg import Pose# , Quaternion
+from math import sin, cos
 # from sensor_msgs.msg import LaserScan
 from waffle.waffle_common import Planner
 
@@ -17,7 +20,6 @@ class Potential(Planner):
         Output:
             None
         '''
-        #TODO(buckbaskin): implement this
         pass
 
     def direction(self, pose):
@@ -30,7 +32,6 @@ class Potential(Planner):
         Output:
             Quaternion
         '''
-        #TODO(buckbaskin): implement this
         return pose.orientation
 
     def magnitude(self, pose):
@@ -42,7 +43,6 @@ class Potential(Planner):
         Output:
             float
         '''
-        #TODO(buckbaskin): implement this
         return abs(pose.position.x)
 
     def generate_plan(self, start, goal):
@@ -65,6 +65,74 @@ class NaivePotential(Potential):
     #TODO(buckbaskin): implement this
     def __init__(self):
         super(NaivePotential, self).__init__()
+
+        self.obstacles = []
+
+    def new_scan(self, pose, scan):
+        '''
+        based on a new set of scan data collected at a given pose, update the
+        potential field
+        Input:
+            Pose
+            LaserScan
+        Output:
+            None
+        '''
+        self.obstacles = []
+
+        min_ = scan.angle_min
+        max_ = scan.angle_max
+        angle_inc = scan.angle_increment
+
+        angle = min_
+        index = 0
+
+        trailing_min = scan.range_max
+        trailing_min_index = -1
+        for range_ in scan.ranges:
+            if range_ < scan.range_max - .01:
+                if range_ < trailing_min:
+                    trailing_min = range_
+                    trailing_min_index = index + 0
+            else:
+                # range is out to max, no obstacle
+                self.obstacles.append((trailing_min, min_+index*angle_inc,)) # range, bearing
+                trailing_min = scan.range_max
+            # dx = range_*cos(angle)
+            # dy = range_*sin(angle)
+            angle += angle_inc
+            index += 1
+
+    def direction(self, pose):
+        '''
+        Gives the direction of the potential field for a given pose relative to
+        the pose
+
+        Input:
+            Pose
+        Output:
+            Quaternion
+        '''
+        return pose.orientation
+
+    def magnitude(self, pose):
+        '''
+        Gives the magnitude of the potential field for a given pose
+
+        Input:
+            Pose
+        Output:
+            float
+        '''
+        return abs(pose.position.x)
+
+    def generate_plan(self, start, goal):
+        #TODO(buckbaskin): implement this
+        deck = deque()
+        deck.append(start)
+        deck.append(Pose())
+        deck.append(goal)
+        return deck
 
 
 class SavingPotential(Potential):
