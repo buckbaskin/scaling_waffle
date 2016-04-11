@@ -17,6 +17,7 @@ class Potential(Planner):
         Output:
             None
         '''
+        #TODO(buckbaskin): implement this
         pass
 
     def direction(self, pose):
@@ -29,6 +30,7 @@ class Potential(Planner):
         Output:
             Quaternion
         '''
+        #TODO(buckbaskin): implement this
         return pose.orientation
 
     def magnitude(self, pose):
@@ -40,9 +42,11 @@ class Potential(Planner):
         Output:
             float
         '''
+        #TODO(buckbaskin): implement this
         return abs(pose.position.x)
 
     def generate_plan(self, start, goal):
+        #TODO(buckbaskin): implement this
         deck = deque()
         deck.append(start)
         deck.append(Pose())
@@ -58,6 +62,7 @@ class NaivePotential(Potential):
     This will likely fail without a 360 degree scan, because it will only see
     obstacles in front of it, which would "push" it backwards.
     '''
+    #TODO(buckbaskin): implement this
     def __init__(self):
         super(NaivePotential, self).__init__()
 
@@ -71,6 +76,7 @@ class SavingPotential(Potential):
     obstacles even if a laser scan has shown the obstacle to have moved. With
     static obstacles, this should outperform the NaivePotential.
     '''
+    #TODO(buckbaskin): implement this
     def __init__(self):
         super(SavingPotential, self).__init__()
 
@@ -82,7 +88,6 @@ class ImprovedPotential(Potential):
     improve its completeness, or at least the variety of geometries that it can
     handle without getting caught in local minima.
     '''
+    #TODO(buckbaskin): implement this
     def __init__(self):
         super(ImprovedPotential, self).__init__()
-
-del Potential
