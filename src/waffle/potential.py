@@ -112,6 +112,7 @@ class NaivePotential(Potential):
             self.obstacles[i] = (x,y,)
 
     def calc_potential(self, pose):
+        #TODO(buckbaskin):
         return (1,0,0,)
 
     def direction(self, pose):
