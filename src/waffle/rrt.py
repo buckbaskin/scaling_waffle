@@ -1,6 +1,7 @@
 # pylint: disable=line-too-long
 
 import math
+import random
 
 from collections import deque
 from geometry_msgs.msg import Pose
@@ -101,15 +102,21 @@ class RRTNode(object):
         self.pose = pose
         self.parent = int(parent)
         self.children = []
-        self.obstacles = ObstacleMap(-100.0, 100.0, -100.0, 100.0)
 
     def add_child(self, pose):
         self.children.append(pose)
 
 
 class RRTBase(Planner):
-    def __init__(self):
+    def __init__(self, minx=-100.0, maxx=100.0, miny=-100.0, maxy=100.0):
         super(RRTBase, self).__init__()
+        self.minx = minx
+        self.maxx = maxx
+        self.miny = miny
+        self.maxy = maxy
+        self.obstacles = ObstacleMap(minx, maxx, miny, maxy)
+
+        self.step_size = .1
 
         self.nodes = {}
 
@@ -161,12 +168,97 @@ class RRTBase(Planner):
 
         self.obstacles.condense()
 
+    def expand_tree_biased(self, goal):
+        if random.uniform(0.0,1.0) < .05:
+            choose_pose = goal
+
+            nearest = self.find_nearest_node(choose_pose)
+
+            dx = goal.position.x - nearest.position.x
+            dy = goal.position.x - nearest.position.y
+
+            dist = math.sqrt(dx*dx + dy*dy)
+            dx = dx/dist*self.step_size
+            dy = dy/dist*self.step_size
+
+            if dist < .01:
+                # found goal
+                return None
+            elif dist < self.step_size:
+                if not self.obstacles.check_collision(goal):
+                    nearest.add_child(goal)
+                return None
+            else:
+                choose_pose.position.x = nearest.position.x + dx
+                choose_pose.position.y = nearest.position.y + dy
+                # I need to take steps towards the goal.
+                while(dist > self.step_size):
+                    if self.obstacles.check_collision(choose_pose):
+                        return None
+                    else:
+                        nearest.add_child(choose_pose)
+
+                        choose_pose.position.x += dx
+                        choose_pose.position.y += dy
+
+                        dx = goal.position.x - choose_pose.position.x
+                        dy = goal.position.y - choose_pose.position.x
+
+                        dist = math.sqrt(dx*dx + dy*dy)
+                        dx = dx/dist*self.step_size
+                        dy = dy/dist*self.step_size
+                if dist < self.step_size:
+                    if self.obstacles.check_collision(goal):
+                        return None
+                    else:
+                        nearest.add_child(goal)
+                return None
+        else:
+            self.expand_tree()
+
     def expand_tree(self):
         '''
         Based on all past information, expand the tree
         '''
-        #TODO(buckbaskin): implement this
-        pass
+
+        x = random.uniform(self.minx, self.maxx)
+        y = random.uniform(self.miny, self.maxy)
+
+        choose_pose = Pose()
+        choose_pose.position.x = x
+        choose_pose.position.y = y
+
+        while self.obstacles.check_collision(choose_pose):
+            x = random.uniform(self.minx, self.maxx)
+            y = random.uniform(self.miny, self.maxy)
+
+            choose_pose = Pose()
+            choose_pose.position.x = x
+            choose_pose.position.y = y
+
+        # now I have a point in the free space
+
+        nearest = self.find_nearest_node(choose_pose)
+
+        dx = choose_pose.position.x - nearest.position.x
+        dy = choose_pose.position.x - nearest.position.y
+
+        dist = math.sqrt(dx*dx + dy*dy)
+        dx = dx/dist*self.step_size
+        dy = dy/dist*self.step_size
+
+        if dist < .01:
+            return None # point already taken care of...
+        elif dist < 2.0*step_size:
+            # if the point is close, add the choose point as the child
+            if not self.obstacles.check_collision(choose_pose):
+                nearest.add_child(choose_pose)
+        else:
+            # take a step towards the chosen
+            choose_pose.position.x = nearest.position.x + dx
+            choose_pose.position.y = nearest.position.y + dy
+            if not self.obstacles.check_collision(choose_pose):
+                nearest.add_child(choose_pose)
 
     def prune_tree(self, pose, radius):
         '''
