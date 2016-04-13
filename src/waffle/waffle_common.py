@@ -1,6 +1,8 @@
 from collections import deque
 from geometry_msgs.msg import Pose
 
+ROBOT_RADIUS = .5
+
 class Planner(object):
     '''
     A generic planner class to use as a subclass to the potential and RRT

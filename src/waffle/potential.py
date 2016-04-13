@@ -1,11 +1,12 @@
 import math
 
 from collections import deque
+from copy import deepcopy
 from geometry_msgs.msg import Pose# , Quaternion
 from math import sin, cos
 # from sensor_msgs.msg import LaserScan
-from utils import quaternion_to_heading, heading_to_quaternion
-from waffle.waffle_common import Planner
+from utils import quaternion_to_heading, heading_to_quaternion, addv
+from waffle.waffle_common import Planner, ROBOT_RADIUS
 
 class Potential(Planner):
     def __init__(self):
@@ -47,7 +48,6 @@ class Potential(Planner):
         return abs(pose.position.x)
 
     def generate_plan(self, start, goal):
-        #TODO(buckbaskin): implement this
         deck = deque()
         deck.append(start)
         deck.append(Pose())
@@ -112,8 +112,37 @@ class NaivePotential(Potential):
             self.obstacles[i] = (x,y,)
 
     def calc_potential(self, pose):
-        #TODO(buckbaskin):
-        return (1,0,0,)
+        accum = (0,0,0,)
+        for obstacle in self.obstacles:
+            accum = addv(accum, self.force_vector(pose, obstacle))
+        return accum
+
+    def goal_force(self, pose, goal):
+        dx = goal.position.x - pose.position.x
+        dy = goal.position.y - pose.position.y
+
+    def force_vector(self, pose, obstacle):
+
+        scale_parameter = 1.0
+
+        p_x = pose.position.x
+        p_y = pose.position.y
+
+        o_x = obstacle[0]
+        o_y = obstacle[1]
+
+        distance = math.sqrt(math.pow(p_x-o_x, 2)+math.pow(p_y-o_y, 2))
+        angle = math.atan2(p_y-o_y, p_x-o_x)
+
+        distance_from_obstacle = distance - ROBOT_RADIUS
+        if distance_from_obstacle <= 0.001:
+            return (1000000*(p_y-o_y)/abs(p_y-o_y), 1000000*(p_x-o_x)/abs(p_x-o_x),)
+        else:
+            new_magnitude = 1.0/distance_from_obstacle
+            dx = new_magnitude*cos(angle)
+            dy = new_magnitude*sin(angle)
+
+        return (dx, dy, 0.0,)
 
     def direction(self, pose):
         '''
@@ -146,9 +175,39 @@ class NaivePotential(Potential):
     def generate_plan(self, start, goal):
         #TODO(buckbaskin): implement this
         deck = deque()
-        deck.append(start)
-        deck.append(Pose())
-        deck.append(goal)
+        deck.leftappend(start)
+
+        next_ = deepcopy(start)
+
+        distance = (math.pow(next_.position.x-goal.position.x, 2) 
+            + math.pow(next_.position.y-goal.position.y, 2))
+
+        step_size = .01
+
+        while(distance > .01):
+
+            obs_force = self.calc_potential(next_)
+            goal_force = self.goal_force(next_, goal)
+            total_force = addv(obs_force, goal_force)
+
+            dx = total_force[0]*step_size
+            dy = total_force[1]*step_size
+
+
+            new_pose = Pose()
+            new_pose.position.x = next_.position.x+dx
+            new_pose.position.y = next_.position.y+dy
+            new_pose.orientation = heading_to_quaternion(math.atan2(dy, dx))
+
+            deck.leftappend(new_pose)
+
+            next_ = deepcopy(new_pose)
+
+            distance = (math.pow(next_.position.x-goal.position.x, 2) 
+                + math.pow(next_.position.y-goal.position.y, 2))
+
+
+        deck.leftappend(goal)
         return deck
 
 

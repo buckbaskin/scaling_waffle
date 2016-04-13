@@ -73,3 +73,6 @@ def unit(vector):
     if under_minimum(vector):
         raise ZeroDivisionError('vector length 0 cannot be scaled to a unit vector')
     return scale(vector, 1.0/length)
+
+def addv(vec1, vec2):
+    return (vec1[0]+vec2[0], vec1[1]+vec2[1], vec1[2]+vec2[2],)

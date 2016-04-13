@@ -5,9 +5,7 @@ import math
 from collections import deque
 from geometry_msgs.msg import Pose
 # from sensor_msgs.msg import LaserScan
-from waffle.waffle_common import Planner
-
-ROBOT_RADIUS = .5
+from waffle.waffle_common import Planner, ROBOT_RADIUS
 
 class ObstacleMap(object):
     def __init__(self, minx, maxx, miny, maxy):
