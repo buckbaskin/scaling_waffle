@@ -90,11 +90,18 @@ class ObstacleMap(object):
                         return True
         return False
 
+    def condense(self):
+        '''
+        Combine multiple obstacles in the same place into one
+        '''
+        pass
+
 class RRTNode(object):
     def __init__(self, pose, parent):
         self.pose = pose
         self.parent = int(parent)
         self.children = []
+        self.obstacles = ObstacleMap(-100.0, 100.0, -100.0, 100.0)
 
     def add_child(self, pose):
         self.children.append(pose)
@@ -126,14 +133,49 @@ class RRTBase(Planner):
         Output:
             None
         '''
-        #TODO(buckbaskin): implement this
-        pass
+        # add in all the new obstacles
+        angle = scan.min_angle+quaternion_to_heading(pose.orientation)
+        for reading in scan.ranges:
+
+            # add a new obstacle
+
+            if reading > scan.range_max - .01:
+                continue
+            x = pose.position.x + reading*cos(angle)
+            y = pose.position.x + reading*cos(angle)
+            radius = reading*scan.angle_increment/2.0
+
+            new_pose = Pose()
+            new_pose.position.x = x
+            new_pose.position.y = y
+
+            self.obstacles.add_obstacle(deep_copy(new_pose), radius)
+
+            # check if I need to prune
+            self.prune_tree(new_pose, radius)
+
+            angle += scan.angle_increment
+
+        # remove previously seen obstacles that are too close to existing
+        #   obstacles
+
+        self.obstacles.condense()
 
     def expand_tree(self):
         '''
         Based on all past information, expand the tree
         '''
         #TODO(buckbaskin): implement this
+        pass
+
+    def prune_tree(self, pose, radius):
+        '''
+        Find the nearest node to the pose/radius. If it is within the radius
+        /collision, then remove that node from the tree (and its children)
+
+        Repeat until the nearest node isn't a collision
+        '''
+        # TODO(buckbaskin):
         pass
 
     def find_nearest_node(self, pose):
