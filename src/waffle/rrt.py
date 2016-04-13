@@ -98,13 +98,20 @@ class ObstacleMap(object):
         pass
 
 class RRTNode(object):
-    def __init__(self, pose, parent):
+    def __init__(self, id_, pose, parent):
+        self.id_ = id_
         self.pose = pose
         self.parent = int(parent)
         self.children = []
 
     def add_child(self, pose):
         self.children.append(pose)
+
+    def remove(self, old_nodes):
+        del old_nodes[self.id_]
+        for child in self.children:
+            old_nodes = self.children.remove(old_nodes)
+        return old_nodes
 
 
 class RRTBase(Planner):
@@ -267,8 +274,24 @@ class RRTBase(Planner):
 
         Repeat until the nearest node isn't a collision
         '''
-        # TODO(buckbaskin):
-        pass
+        # TODO(buckbaskin): make this a do while loop
+        nearest = self.find_nearest_node(pose)
+        dx = pose.position.x - nearest.position.x
+        dy = pose.position.y - nearest.position.y
+        dist = math.sqrt(dx*dx + dy*dy)
+        dist += -radius
+        dist += -ROBOT_RADIUS
+        
+        while dist < 0:
+            # collision!
+            self.nodes = nearest.remove(self.nodes)
+
+            nearest = self.find_nearest_node(pose)
+            dx = pose.position.x - nearest.position.x
+            dy = pose.position.y - nearest.position.y
+            dist = math.sqrt(dx*dx + dy*dy)
+            dist += -radius
+            dist += -ROBOT_RADIUS
 
     def find_nearest_node(self, pose):
         '''
