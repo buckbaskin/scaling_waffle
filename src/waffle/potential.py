@@ -63,7 +63,7 @@ class NaivePotential(Potential):
     This will likely fail without a 360 degree scan, because it will only see
     obstacles in front of it, which would "push" it backwards.
     '''
-    #TODO(buckbaskin): implement this
+
     def __init__(self):
         super(NaivePotential, self).__init__()
 
@@ -173,7 +173,6 @@ class NaivePotential(Potential):
         return math.sqrt(accum)
 
     def generate_plan(self, start, goal):
-        #TODO(buckbaskin): implement this
         deck = deque()
         deck.leftappend(start)
 
