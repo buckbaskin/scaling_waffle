@@ -1,12 +1,17 @@
 # pylint: disable=line-too-long
+# pylint: disable=invalid-name
 
 import math
 import random
 
 from collections import deque
+from copy import deepcopy
 from geometry_msgs.msg import Pose
+from math import sin, cos
 # from sensor_msgs.msg import LaserScan
 from waffle.waffle_common import Planner, ROBOT_RADIUS
+from utils import quaternion_to_heading, heading_to_quaternion, addv
+
 
 class ObstacleMap(object):
     def __init__(self, minx, maxx, miny, maxy):
@@ -97,6 +102,62 @@ class ObstacleMap(object):
         '''
         pass
 
+class NodeTree(dict):
+    '''
+    a kd-tree for finding the nearest nodes to a given point
+    '''
+    def __init__(self, start_pose):
+        self[0] = start_pose
+        self[0].parent = None
+        self[0].left = None
+        self[0].right = None
+        self.next_id = 1
+
+    def find_nearest_node(self, test_pose):
+        # TODO(buckbaskin): implement
+        return 0
+
+    def add_node(self, pose, depth=0, root_index=0):
+        # add the node to a dict
+        self[next_id] = pose
+        self[next_id].left = None
+        self[next_id].right = None
+        # set the node's parent
+        if depth % 2 == 0:
+            # check x
+            if pose.position.x < self[root_index].position.x:
+                # left
+                if self[root_index].left is None:
+                    self[root_index].left = next_id
+                    self[next_id].parent = root_index
+                else:
+                    self.add_node(pose, depth=depth+1, root_index=self[root_index].left)
+            else:
+                # right
+                if self[root_index].right is None:
+                    self[root_index].right = next_id
+                    self[next_id].parent = root_index
+                else:
+                    self.add_node(pose, depth=depth+1, root_index=self[root_index].right)
+        else:
+            # check y
+            if pose.position.y < self[root_index].position.y:
+                # left
+                if self[root_index].left is None:
+                    self[root_index].left = next_id
+                    self[next_id].parent = root_index
+                else:
+                    self.add_node(pose, depth=depth+1, root_index=self[root_index].left)
+            else:
+                # right
+                if self[root_index].right is None:
+                    self[root_index].right = next_id
+                    self[next_id].parent = root_index
+                else:
+                    self.add_node(pose, depth=depth+1, root_index=self[root_index].right)
+        # increment the node's next insert index
+        self.next_id += 1
+
 class RRTNode(object):
     def __init__(self, id_, pose, parent):
         self.id_ = id_
@@ -163,7 +224,7 @@ class RRTBase(Planner):
             new_pose.position.x = x
             new_pose.position.y = y
 
-            self.obstacles.add_obstacle(deep_copy(new_pose), radius)
+            self.obstacles.add_obstacle(deepcopy(new_pose), radius)
 
             # check if I need to prune
             self.prune_tree(new_pose, radius)
@@ -176,13 +237,13 @@ class RRTBase(Planner):
         self.obstacles.condense()
 
     def expand_tree_biased(self, goal):
-        if random.uniform(0.0,1.0) < .05:
+        if random.uniform(0.0, 1.0) < .05:
             choose_pose = goal
 
-            nearest = self.find_nearest_node(choose_pose)
+            nearest_id = self.find_nearest_node(choose_pose)
 
-            dx = goal.position.x - nearest.position.x
-            dy = goal.position.x - nearest.position.y
+            dx = goal.position.x - self.nodes[nearest_id].position.x
+            dy = goal.position.x - self.nodes[nearest_id].position.y
 
             dist = math.sqrt(dx*dx + dy*dy)
             dx = dx/dist*self.step_size
@@ -193,17 +254,17 @@ class RRTBase(Planner):
                 return None
             elif dist < self.step_size:
                 if not self.obstacles.check_collision(goal):
-                    nearest.add_child(goal)
+                    self.nodes[nearest_id].add_child(goal)
                 return None
             else:
-                choose_pose.position.x = nearest.position.x + dx
-                choose_pose.position.y = nearest.position.y + dy
+                choose_pose.position.x = self.nodes[nearest_id].position.x + dx
+                choose_pose.position.y = self.nodes[nearest_id].position.y + dy
                 # I need to take steps towards the goal.
-                while(dist > self.step_size):
+                while dist > self.step_size:
                     if self.obstacles.check_collision(choose_pose):
                         return None
                     else:
-                        nearest.add_child(choose_pose)
+                        self.nodes[nearest_id].add_child(choose_pose)
 
                         choose_pose.position.x += dx
                         choose_pose.position.y += dy
@@ -218,7 +279,7 @@ class RRTBase(Planner):
                     if self.obstacles.check_collision(goal):
                         return None
                     else:
-                        nearest.add_child(goal)
+                        self.nodes[nearest_id].add_child(goal)
                 return None
         else:
             self.expand_tree()
@@ -245,10 +306,10 @@ class RRTBase(Planner):
 
         # now I have a point in the free space
 
-        nearest = self.find_nearest_node(choose_pose)
+        nearest_id = self.find_nearest_node(choose_pose)
 
-        dx = choose_pose.position.x - nearest.position.x
-        dy = choose_pose.position.x - nearest.position.y
+        dx = choose_pose.position.x - self.nodes[nearest_id].position.x
+        dy = choose_pose.position.x - self.nodes[nearest_id].position.y
 
         dist = math.sqrt(dx*dx + dy*dy)
         dx = dx/dist*self.step_size
@@ -256,16 +317,16 @@ class RRTBase(Planner):
 
         if dist < .01:
             return None # point already taken care of...
-        elif dist < 2.0*step_size:
+        elif dist < 2.0*self.step_size:
             # if the point is close, add the choose point as the child
             if not self.obstacles.check_collision(choose_pose):
-                nearest.add_child(choose_pose)
+                self.nodes[nearest_id].add_child(choose_pose)
         else:
             # take a step towards the chosen
-            choose_pose.position.x = nearest.position.x + dx
-            choose_pose.position.y = nearest.position.y + dy
+            choose_pose.position.x = self.nodes[nearest_id].position.x + dx
+            choose_pose.position.y = self.nodes[nearest_id].position.y + dy
             if not self.obstacles.check_collision(choose_pose):
-                nearest.add_child(choose_pose)
+                self.nodes[nearest_id].add_child(choose_pose)
 
     def prune_tree(self, pose, radius):
         '''
@@ -274,21 +335,20 @@ class RRTBase(Planner):
 
         Repeat until the nearest node isn't a collision
         '''
-        # TODO(buckbaskin): make this a do while loop
-        nearest = self.find_nearest_node(pose)
-        dx = pose.position.x - nearest.position.x
-        dy = pose.position.y - nearest.position.y
+        nearest_id = self.find_nearest_node(pose)
+        dx = pose.position.x - self.nodes[nearest_id].position.x
+        dy = pose.position.y - self.nodes[nearest_id].position.y
         dist = math.sqrt(dx*dx + dy*dy)
         dist += -radius
         dist += -ROBOT_RADIUS
-        
+
         while dist < 0:
             # collision!
-            self.nodes = nearest.remove(self.nodes)
+            self.nodes = self.nodes[nearest_id].remove(self.nodes)
 
-            nearest = self.find_nearest_node(pose)
-            dx = pose.position.x - nearest.position.x
-            dy = pose.position.y - nearest.position.y
+            nearest_id = self.find_nearest_node(pose)
+            dx = pose.position.x - self.nodes[nearest_id].position.x
+            dy = pose.position.y - self.nodes[nearest_id].position.y
             dist = math.sqrt(dx*dx + dy*dy)
             dist += -radius
             dist += -ROBOT_RADIUS
@@ -301,7 +361,7 @@ class RRTBase(Planner):
         Output
             int (node id)
         '''
-        #TODO(buckbaskin): implement this
+        #TODO(buckbaskin): implement this next
         return 0
 
     def find_path(self, start_id, goal_id):
