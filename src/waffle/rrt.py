@@ -114,7 +114,7 @@ class NodeTree(dict):
         self.next_id = 1
 
     def find_nearest_node(self, test_pose):
-        # TODO(buckbaskin): implement
+        # TODO(buckbaskin): implement this next
         return 0
 
     def add_node(self, pose, depth=0, root_index=0):
@@ -186,11 +186,10 @@ class RRTBase(Planner):
 
         self.step_size = .1
 
-        self.nodes = {}
+        self.nodes = NodeTree(Pose())
 
     def set_root(self, pose):
-        self.nodes = {}
-        self.nodes[0] = RRTNode(pose, None)
+        self.nodes = NodeTree(pose)
 
     def new_scan(self, pose, scan):
         '''
@@ -361,8 +360,7 @@ class RRTBase(Planner):
         Output
             int (node id)
         '''
-        #TODO(buckbaskin): implement this next
-        return 0
+        return self.nodes.find_nearest_node(pose)
 
     def find_path(self, start_id, goal_id):
         '''
