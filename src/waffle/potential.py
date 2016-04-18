@@ -174,7 +174,7 @@ class NaivePotential(Potential):
 
     def generate_plan(self, start, goal):
         deck = deque()
-        deck.leftappend(start)
+        deck.appendleft(start)
 
         next_ = deepcopy(start)
 
@@ -198,7 +198,7 @@ class NaivePotential(Potential):
             new_pose.position.y = next_.position.y+dy
             new_pose.orientation = heading_to_quaternion(math.atan2(dy, dx))
 
-            deck.leftappend(new_pose)
+            deck.appendleft(new_pose)
 
             next_ = deepcopy(new_pose)
 
@@ -206,7 +206,7 @@ class NaivePotential(Potential):
                 + math.pow(next_.position.y-goal.position.y, 2))
 
 
-        deck.leftappend(goal)
+        deck.appendleft(goal)
         return deck
 
 

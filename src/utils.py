@@ -1,7 +1,8 @@
 import math
 
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Quaternion
+# from nav_msgs.msg import Odometry
+# from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Quaternion
 from tf import transformations as tft
 
 def quaternion_to_heading(quaternion):
@@ -64,15 +65,19 @@ def scale(vector, magnitude):
     """
     return (vector[0]*magnitude, vector[1]*magnitude, vector[2]*magnitude)
 
-def unit(vector):
+def unit(ector):
     """
     returns the unit vector in the same direction as the given vector
     """
     length = math.sqrt(vector[0]*vector[0]+vector[1]*vector[1]+
         vector[2]*vector[2])
     if under_minimum(vector):
-        raise ZeroDivisionError('vector length 0 cannot be scaled to a unit vector')
+        raise ZeroDivisionError('vector len 0 can;t be scaled to unit vector')
     return scale(vector, 1.0/length)
+
+def under_minimum(vector):
+    # TODO(buckbaskin): implement for real
+    return False
 
 def addv(vec1, vec2):
     return (vec1[0]+vec2[0], vec1[1]+vec2[1], vec1[2]+vec2[2],)
