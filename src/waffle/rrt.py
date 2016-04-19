@@ -114,7 +114,95 @@ class NodeTree(dict):
         self.next_id = 1
 
     def find_nearest_node(self, test_pose):
-        # TODO(buckbaskin): implement this next
+        node_id, best_distance, depth = find_nearest_node_down(test_pose)
+        node_id = find_nearest_node_up(test_pose, node_id, best_distance, node_id, depth)
+        return node_id
+
+    def find_nearest_node_down(self, test_pose, depth=0, root_index=0):
+        if depth % 2 == 0:
+            # check x
+            if pose.position.x < self[root_index].position.x:
+                # left
+                if self[root_index].left is None:
+                    # leaf
+                    return (root_index, self.distance_function(test_pose, pose), depth,)
+                else:
+                    # follow child down the rabbit hole
+                    return find_nearest_node_down(test_pose, depth+1, self[root_index].left)
+            else:
+                # right
+                if self[root_index].right is None:
+                    # leaf
+                    return (root_index, self.distance_function(test_pose, pose), depth,)
+                else:
+                    # follow child down the rabbit hole
+                    return find_nearest_node_down(test_pose, depth+1, self[root_index].right)
+        else:
+            # check y
+            if pose.position.y < self[root_index].position.y:
+                # left
+                if self[root_index].left is None:
+                    # leaf
+                    return (root_index, self.distance_function(test_pose, pose), depth,)
+                else:
+                    # follow child down the rabbit hole
+                    return find_nearest_node_down(test_pose, depth+1, self[root_index].left)
+            else:
+                # right
+                if self[root_index].right is None:
+                    # leaf
+                    return (root_index, self.distance_function(test_pose, pose), depth,)
+                else:
+                    # follow child down the rabbit hole
+                    return find_nearest_node_down(test_pose, depth+1, self[root_index].right)
+        return (0, float('inf'), depth,)
+
+    def find_nearest_node_up(self, test_pose, best_node_id, best_distance, 
+        pivot_index, depth):
+        if depth < 0 or pivot_index is None:
+            # end recursion
+            return best_node_id
+        if depth % 2 == 0:
+            # check x
+            if test_pose.position.x < self[pivot_index].position.x:
+                # the test pose is left of the pivot that I'm checking
+                if self[pivot_index].right is not None:
+                    # there are nodes to the right of the pivot
+                    crossover_distance = abs(test_pose.position.x-self[pivot_index].position.x)
+                    if crossover_distance >= best_distance:
+                        # check the pivot node, then check the others
+                        # TODO(buckbaskin): check the pivot node, because right now it only checks the leaves
+
+                        # there may be any nodes on the other side that are closer
+                        other_best_id, other_best_distance, other_depth = self.find_nearest_node_down(test_pose, depth, self[pivot_index].right)
+                        if other_best_distance < best_distance:
+                            # there is a closer node
+                            return self.find_nearest_node_up(test_pose, other_best_id, other_best_distance, self[pivot_index].parent, depth-1*)
+                # there are no nodes or no closer nodes to the right of the pivot
+                # keep moving up
+                return self.find_nearest_node_up(test_pose, best_node_id, best_distance, self[pivot_index].parent, depth-1)
+            else:
+                # the test pose is right of the pivot that I'm checking
+                if self[pivot_index].left is not None:
+                    # there are nodes to the right of the pivot
+                    crossover_distance = abs(test_pose.position.x-self[pivot_index].position.x)
+                    if crossover_distance >= best_distance:
+                        # there may be any nodes on the other side that are closer
+                        other_best_id, other_best_distance, other_depth = self.find_nearest_node_down(test_pose, depth, self[pivot_index].left)
+                        if other_best_distance < best_distance:
+                            # there is a closer node
+                            return self.find_nearest_node_up(test_pose, other_best_id, other_best_distance, self[pivot_index].parent, depth-1*)
+                # there are no nodes or no closer nodes to the right of the pivot
+                # keep moving up
+                return self.find_nearest_node_up(test_pose, best_node_id, best_distance, self[pivot_index].parent, depth-1)
+        else:
+            # check y
+            if test_pose.position.y < self[pivot_index].position.y:
+                # left
+                pass
+            else:
+                # right
+                pass
         return 0
 
     def add_node(self, pose, depth=0, root_index=0):
