@@ -171,8 +171,10 @@ class NodeTree(dict):
                     crossover_distance = abs(test_pose.position.x-self[pivot_index].position.x)
                     if crossover_distance >= best_distance:
                         # check the pivot node, then check the others
-                        # TODO(buckbaskin): check the pivot node, because right now it only checks the leaves
-
+                        distance_to_pivot = self.distance_function(self[pivot_index], test_pose)
+                        if distance_to_pivot < best_distance:
+                            best_distance = distance_to_pivot
+                            best_node_id = pivot_index
                         # there may be any nodes on the other side that are closer
                         other_best_id, other_best_distance, other_depth = self.find_nearest_node_down(test_pose, depth, self[pivot_index].right)
                         if other_best_distance < best_distance:
@@ -188,6 +190,12 @@ class NodeTree(dict):
                     crossover_distance = abs(test_pose.position.x-self[pivot_index].position.x)
                     if crossover_distance >= best_distance:
                         # there may be any nodes on the other side that are closer
+                        # check the pivot node, then check the others
+                        distance_to_pivot = self.distance_function(self[pivot_index], test_pose)
+                        if distance_to_pivot < best_distance:
+                            best_distance = distance_to_pivot
+                            best_node_id = pivot_index
+
                         other_best_id, other_best_distance, other_depth = self.find_nearest_node_down(test_pose, depth, self[pivot_index].left)
                         if other_best_distance < best_distance:
                             # there is a closer node
