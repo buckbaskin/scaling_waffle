@@ -179,7 +179,7 @@ class NodeTree(dict):
                         other_best_id, other_best_distance, other_depth = self.find_nearest_node_down(test_pose, depth, self[pivot_index].right)
                         if other_best_distance < best_distance:
                             # there is a closer node
-                            return self.find_nearest_node_up(test_pose, other_best_id, other_best_distance, self[pivot_index].parent, depth-1*)
+                            return self.find_nearest_node_up(test_pose, other_best_id, other_best_distance, self[pivot_index].parent, depth-1)
                 # there are no nodes or no closer nodes to the right of the pivot
                 # keep moving up
                 return self.find_nearest_node_up(test_pose, best_node_id, best_distance, self[pivot_index].parent, depth-1)
@@ -199,7 +199,7 @@ class NodeTree(dict):
                         other_best_id, other_best_distance, other_depth = self.find_nearest_node_down(test_pose, depth, self[pivot_index].left)
                         if other_best_distance < best_distance:
                             # there is a closer node
-                            return self.find_nearest_node_up(test_pose, other_best_id, other_best_distance, self[pivot_index].parent, depth-1*)
+                            return self.find_nearest_node_up(test_pose, other_best_id, other_best_distance, self[pivot_index].parent, depth-1)
                 # there are no nodes or no closer nodes to the right of the pivot
                 # keep moving up
                 return self.find_nearest_node_up(test_pose, best_node_id, best_distance, self[pivot_index].parent, depth-1)

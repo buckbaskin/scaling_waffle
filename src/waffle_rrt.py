@@ -38,5 +38,7 @@ if __name__ == '__main__':
     ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
     LASER_SUB = rospy.Subscriber('/laser_scan', LaserScan, laser_cb)
 
+    rospy.loginfo('waffle_rrt start')
+
     while not rospy.is_shutdown():
         CLASSIC_WAFFLE.expand_tree()
