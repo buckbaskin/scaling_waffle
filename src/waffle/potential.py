@@ -174,7 +174,7 @@ class NaivePotential(Potential):
 
     def generate_plan(self, start, goal, debug=None):
         if debug is not None:
-            debug('potential generate plane '+str(goal))
+            debug('potential generate plane\n'+str(goal))
         deck = deque()
         deck.appendleft(start)
 
@@ -183,18 +183,23 @@ class NaivePotential(Potential):
         distance = (math.pow(next_.position.x-goal.position.x, 2) 
             + math.pow(next_.position.y-goal.position.y, 2))
 
+        debug('dist: %f' % (distance,))
+
         step_size = .01
 
         while(distance > .01):
-
+            debug('while ... ')
             obs_force = self.calc_potential(next_)
             goal_force = self.goal_force(next_, goal)
+            # TODO(buckbaskin): goal force returns None
+            debug('type %s %s' % (type(obs_force), type(goal_force)))
             total_force = addv(obs_force, goal_force)
+            debug('%s\n%s\n%s' % (obs_force, goal_force, total_force))
 
             dx = total_force[0]*step_size
             dy = total_force[1]*step_size
 
-            print('d: %f , %f' % (dx, dy,))
+            debug('d: %f , %f' % (dx, dy,))
             new_pose = Pose()
             new_pose.position.x = next_.position.x+dx
             new_pose.position.y = next_.position.y+dy
