@@ -184,7 +184,7 @@ class NaivePotential(Potential):
         if debug is not None:
             debug('potential generate plane\n'+str(goal))
         deck = deque()
-        deck.appendleft(start)
+        deck.append(start)
 
         next_ = deepcopy(start)
 
@@ -193,15 +193,16 @@ class NaivePotential(Potential):
 
         debug('dist: %f' % (distance,))
 
-        step_size = .01
+        step_size = .1
 
-        while(distance > .01):
-            debug('while ... ')
+        count = max(10, int(1.0/step_size))
+
+        while(distance > .01 and count >= 0):
             obs_force = self.calc_potential(next_)
             goal_force = self.goal_force(next_, goal)
-            # TODO(buckbaskin): goal force returns None
-            debug('type %s %s' % (type(obs_force), type(goal_force)))
+            
             total_force = addv(obs_force, goal_force)
+            total_force = unit(total_force)
             debug('%s\n%s\n%s' % (obs_force, goal_force, total_force))
 
             dx = total_force[0]*step_size
@@ -213,15 +214,19 @@ class NaivePotential(Potential):
             new_pose.position.y = next_.position.y+dy
             new_pose.orientation = heading_to_quaternion(math.atan2(dy, dx))
 
-            deck.appendleft(new_pose)
+            deck.append(new_pose)
 
             next_ = deepcopy(new_pose)
 
             distance = (math.pow(next_.position.x-goal.position.x, 2) 
                 + math.pow(next_.position.y-goal.position.y, 2))
+            debug('dist: %f' % (distance,))
+            count += -1
+        if (distance > .01):
+            debug('count break')
+        else:
+            deck.append(goal)
 
-
-        deck.appendleft(goal)
         return list(deck)
 
 
