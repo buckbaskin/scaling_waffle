@@ -22,8 +22,10 @@ goals = []
 
 start = None
 end = Pose()
-end.position.x = 30
-end.position.y = 30
+end.position.x = 32
+end.position.y = 32
+
+crash_flag = False
 
 count = 0
 
@@ -55,8 +57,8 @@ def odom_cb(odom):
                 if (len(goals) == 0):
                     rospy.loginfo('Driver: arrived at goal')
                     DRIVER.publish(Twist())
-                    import sys
-                    sys.exit(0)
+                    global crash_flag
+                    crash_flag = True
             else:
                 rospy.loginfo('Driver: empty goals list')
                 DRIVER.publish(Twist())
@@ -98,9 +100,9 @@ def odom_cb(odom):
 
         dtheta = goal_direction - current_direction
 
-        while dtheta > 2*math.pi:
+        while dtheta >= 2*math.pi:
             dtheta = dtheta - 2*math.pi
-        while dtheta < -2*math.pi:
+        while dtheta <= -2*math.pi:
             dtheta = dtheta + 2*math.pi
         if dtheta > math.pi:
             dtheta = -2*math.pi + dtheta
@@ -162,5 +164,8 @@ if __name__ == '__main__':
     DRIVER = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
 
     rospy.loginfo('Driver: start simple_driver')
-    rospy.spin()
+    while(not rospy.is_shutdown()):
+        if crash_flag:
+            import sys
+            sys.exit(0)
     rospy.loginfo('Driver: shutdown')

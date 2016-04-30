@@ -117,14 +117,21 @@ class NaivePotential(Potential):
     def calc_potential(self, pose, debug=None):
         accum = (0,0,0,)
         for obstacle in self.obstacles:
-            accum = addv(accum, self.force_vector(pose, obstacle))
+            if (not len(accum) == 3):
+                raise IndexError()
+            farce = self.force_vector(pose, obstacle)
+            if (not len(farce) == 3):
+                rospy.loginfo('farce: '+str(type(farce)))
+                rospy.loginfo('farce: '+str(farce))
+                raise IndexError()
+            accum = addv(accum, farce)
         return accum
 
     def goal_force(self, pose, goal):
         dx = goal.position.x - pose.position.x
         dy = goal.position.y - pose.position.y
 
-        weight = 10.0
+        weight = 5.0
 
         farce = (dx, dy, 0)
         farce = unit(farce)
@@ -146,9 +153,9 @@ class NaivePotential(Potential):
 
         distance_from_obstacle = distance - ROBOT_RADIUS
         if distance_from_obstacle <= 0.001:
-            return (1000000*(p_y-o_y)/abs(p_y-o_y), 1000000*(p_x-o_x)/abs(p_x-o_x),)
+            return (1000000*(p_y-o_y)/abs(p_y-o_y), 1000000*(p_x-o_x)/abs(p_x-o_x), 0.0)
         else:
-            new_magnitude = 0.1/(distance_from_obstacle)
+            new_magnitude = 0.04/(distance_from_obstacle)
             dx = new_magnitude*cos(angle)
             dy = new_magnitude*sin(angle)
 
@@ -199,7 +206,7 @@ class NaivePotential(Potential):
 
         debug('dist: %f' % (distance,))
 
-        step_size = .1
+        step_size = 0.2
 
         count = max(10, int(1.0/step_size))
 
