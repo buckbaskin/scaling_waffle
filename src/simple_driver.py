@@ -6,6 +6,8 @@ Create a ROS node that uses potential fields to do automated planning
 
 import rospy
 
+import math
+
 from geometry_msgs.msg import Pose, Twist
 from nav_msgs.msg import Odometry
 from scaling_waffle.srv import PotentialField, PotentialFieldResponse
@@ -17,11 +19,29 @@ DRIVER = None
 positions = [None]
 goals = []
 
-def distance(odom1, odom2):
-    return 0.0
+start = None
+end = Odometry()
+end.pose.pose.position.x = 30
+end.pose.pose.position.y = 30
+waiting_for_plan = True
+
+def distance(pose1, pose2):
+    rospy.loginfo(''+str(type(pose1))+' '+str(type(pose2)))
+    x1 = pose1.position.x
+    y1 = pose1.position.y
+    x2 = pose2.position.x
+    y2 = pose2.position.y
+    return math.sqrt(math.pow(x1-x2,2) + math.pow(y1-y2,2))
 
 def odom_cb(odom):
-    rospy.loginfo('odom callback')
+    global start
+    if start is None:
+        start = odom
+        return
+    if waiting_for_plan:
+        rospy.loginfo('waiting_for_plan')
+        return
+
     positions[0] = odom
     if len(goals) <= 0:
         # set speed to 0 and return
@@ -29,9 +49,10 @@ def odom_cb(odom):
             rospy.loginfo('Driver: empty goals list')
             DRIVER.publish(Twist())
         return
-    elif distance(odom, goals[0]) < .02:
+    elif distance(odom.pose.pose, goals[0]) < .02:
         # if I'm on the goal, remove the current goal, set the speed to 0
-        goals.pop(0)
+        to_print = goals.pop(0)
+        rospy.loginfo('@ '+str(to_print))
         if DRIVER is not None:
             rospy.loginfo('Driver: next goal')
             DRIVER.publish(Twist())
@@ -64,6 +85,8 @@ def odom_cb(odom):
 if __name__ == '__main__':
     rospy.init_node('simple_driver')
 
+    ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
+
     rospy.loginfo('waiting for potential plan service')
     rospy.wait_for_service('/potential/plan')
     get_plan = rospy.ServiceProxy('/potential/plan', Plan)
@@ -72,8 +95,8 @@ if __name__ == '__main__':
     resp1 = get_plan()
     goals = resp1.allpoints
     rospy.loginfo('I got a %d step plan' % (len(goals)))
+    waiting_for_plan = False
     
-    ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
     DRIVER = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
 
     rospy.loginfo('Driver: start simple_driver')
