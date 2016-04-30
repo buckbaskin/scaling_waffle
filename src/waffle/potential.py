@@ -5,7 +5,8 @@ from copy import deepcopy
 from geometry_msgs.msg import Pose# , Quaternion
 from math import sin, cos
 # from sensor_msgs.msg import LaserScan
-from utils import quaternion_to_heading, heading_to_quaternion, addv
+from utils import quaternion_to_heading, heading_to_quaternion
+from utils import addv, unit, scale
 from waffle.waffle_common import Planner, ROBOT_RADIUS
 
 class Potential(Planner):
