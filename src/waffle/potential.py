@@ -148,7 +148,7 @@ class NaivePotential(Potential):
         if distance_from_obstacle <= 0.001:
             return (1000000*(p_y-o_y)/abs(p_y-o_y), 1000000*(p_x-o_x)/abs(p_x-o_x),)
         else:
-            new_magnitude = 1.0/(distance_from_obstacle*distance_from_obstacle)
+            new_magnitude = 0.1/(distance_from_obstacle)
             dx = new_magnitude*cos(angle)
             dy = new_magnitude*sin(angle)
 

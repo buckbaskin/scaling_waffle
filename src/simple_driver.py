@@ -60,6 +60,12 @@ def odom_cb(odom):
             else:
                 rospy.loginfo('Driver: empty goals list')
                 DRIVER.publish(Twist())
+                goals = get_plan(odom.pose.pose, end).allpoints
+                if (len(goals) == 0):
+                    rospy.loginfo('Driver: arrived at goal')
+                    DRIVER.publish(Twist())
+                    import sys
+                    sys.exit(0)
         return
     elif distance(odom.pose.pose, goals[0]) < .02:
         # if I'm on the goal, remove the current goal, set the speed to 0
