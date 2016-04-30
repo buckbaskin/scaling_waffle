@@ -207,7 +207,7 @@ class NaivePotential(Potential):
 
 
         deck.appendleft(goal)
-        return deck
+        return list(deck)
 
 
 class SavingPotential(Potential):

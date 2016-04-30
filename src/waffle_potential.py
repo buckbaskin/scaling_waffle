@@ -36,9 +36,10 @@ def potential_srv(srv):
     return pfr
 
 def plan_srv(srv):
-    goal = srv.goal
-    start = srv.start
-    return PlanResponse(CLASSIC_WAFFLE.generate_plan(start, goal))
+    pr = PlanResponse()
+    plan = CLASSIC_WAFFLE.generate_plan(srv.start, srv.goal)
+    pr.allpoints = plan
+    return pr
 
 if __name__ == '__main__':
     rospy.init_node('waffle_potential')
