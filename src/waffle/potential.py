@@ -121,6 +121,13 @@ class NaivePotential(Potential):
         dx = goal.position.x - pose.position.x
         dy = goal.position.y - pose.position.y
 
+        weight = 3.0
+
+        farce = (dx, dy, 0)
+        farce = unit(farce)
+        farce = scale(farce, weight)
+        return farce
+
     def force_vector(self, pose, obstacle):
 
         scale_parameter = 1.0

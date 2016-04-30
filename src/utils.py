@@ -65,7 +65,7 @@ def scale(vector, magnitude):
     """
     return (vector[0]*magnitude, vector[1]*magnitude, vector[2]*magnitude)
 
-def unit(ector):
+def unit(vector):
     """
     returns the unit vector in the same direction as the given vector
     """
