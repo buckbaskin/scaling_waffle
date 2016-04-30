@@ -87,7 +87,7 @@ def odom_cb(odom):
 
         dtheta = goal_direction - current_direction
 
-        t.angular.z = dtheta*dt*0.5
+        t.angular.z = dtheta/(2.0*dt)
 
         if t.angular.z > 0.25:
             t.angular.z = 0.25
@@ -95,7 +95,7 @@ def odom_cb(odom):
             t.angular.z = -0.25
 
         t.linear.x = 0.0
-        # rospy.loginfo('dtheta %f if.' % (dtheta,))
+        rospy.loginfo('dtheta %f if.' % (dtheta,))
         if abs(dtheta) < .01:
             # I'm pointing in the right direction, go forward
             dist = distance(next_, end)

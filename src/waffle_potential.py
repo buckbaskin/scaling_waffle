@@ -47,6 +47,6 @@ if __name__ == '__main__':
     POTEN_SRV = rospy.Service('/potential/field', PotentialField, potential_srv)
     PLAN_SRV = rospy.Service('/potential/plan', Plan, plan_srv)
     ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
-    LASER_SUB = rospy.Subscriber('/laser_scan', LaserScan, laser_cb)
+    LASER_SUB = rospy.Subscriber('/base_scan', LaserScan, laser_cb)
     rospy.loginfo('start waffle_potential')
     rospy.spin()

@@ -1,4 +1,5 @@
 import math
+import rospy
 
 from collections import deque
 from copy import deepcopy
@@ -91,6 +92,7 @@ class NaivePotential(Potential):
 
         trailing_min = scan.range_max
         trailing_min_index = -1
+
         for range_ in scan.ranges:
             if range_ < scan.range_max - .01:
                 self.obstacles.append((range_, angle,)) # (r, theta,)
@@ -112,7 +114,7 @@ class NaivePotential(Potential):
             y = pose.position.y + old_obstacle[0]*sin(old_obstacle[1]+heading)
             self.obstacles[i] = (x,y,)
 
-    def calc_potential(self, pose):
+    def calc_potential(self, pose, debug=None):
         accum = (0,0,0,)
         for obstacle in self.obstacles:
             accum = addv(accum, self.force_vector(pose, obstacle))
@@ -122,7 +124,7 @@ class NaivePotential(Potential):
         dx = goal.position.x - pose.position.x
         dy = goal.position.y - pose.position.y
 
-        weight = 3.0
+        weight = 10.0
 
         farce = (dx, dy, 0)
         farce = unit(farce)
@@ -198,7 +200,9 @@ class NaivePotential(Potential):
         count = max(10, int(1.0/step_size))
 
         while(distance > .01 and count >= 0):
-            obs_force = self.calc_potential(next_)
+            debug('start calculating obs_force')
+            obs_force = self.calc_potential(next_, debug)
+            debug('end calculating obs_force')
             goal_force = self.goal_force(next_, goal)
             
             total_force = addv(obs_force, goal_force)
