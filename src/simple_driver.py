@@ -162,9 +162,15 @@ if __name__ == '__main__':
     waiting_for_plan = False
     
     DRIVER = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+    GOALER = rospy.Publisher('/goal_pose', Odometry, queue_size=1)
 
     rospy.loginfo('Driver: start simple_driver')
     while(not rospy.is_shutdown()):
+        odo = Odometry()
+        odo.header.frame_id = '/odom'
+        odo.pose.pose = end
+        GOALER.publish(odo)
+        rate_limit.sleep()
         if crash_flag:
             import sys
             sys.exit(0)
