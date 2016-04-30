@@ -61,9 +61,11 @@ if __name__ == '__main__':
     rospy.init_node('simple_driver')
 
     rospy.loginfo('waiting for potential plan service')
+    rospy.wait_for_service('/potential/plan')
     get_plan = rospy.ServiceProxy('/potential/plan', Plan)
+    rospy.loginfo('found potential plan service')
 
-    resp1 = getplan()
+    resp1 = get_plan()
     goals = resp1.allpoints
     rospy.loginfo('I got a %d step plan' % (len(goals)))
     
