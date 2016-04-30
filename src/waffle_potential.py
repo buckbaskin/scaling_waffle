@@ -36,6 +36,7 @@ def potential_srv(srv):
     return pfr
 
 def plan_srv(srv):
+    rospy.loginfo('waffle: serving plan request')
     pr = PlanResponse()
     plan = CLASSIC_WAFFLE.generate_plan(srv.start, srv.goal)
     pr.allpoints = plan

@@ -21,21 +21,25 @@ def distance(odom1, odom2):
     return 0.0
 
 def odom_cb(odom):
+    rospy.loginfo('odom callback')
     positions[0] = odom
     if len(goals) <= 0:
         # set speed to 0 and return
         if DRIVER is not None:
+            rospy.loginfo('Driver: empty goals list')
             DRIVER.publish(Twist())
         return
     elif distance(odom, goals[0]) < .02:
         # if I'm on the goal, remove the current goal, set the speed to 0
         goals.pop(0)
         if DRIVER is not None:
+            rospy.loginfo('Driver: next goal')
             DRIVER.publish(Twist())
         return
     else:
         # find the deltas between my position and the angle to the next goal
         # drive towards the goal position
+        rospy.loginfo('Driver: moving on')
         t = Twist()
 
         t.linear.x = 0.0
@@ -72,5 +76,6 @@ if __name__ == '__main__':
     ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
     DRIVER = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
 
-    rospy.loginfo('start simple_driver')
+    rospy.loginfo('Driver: start simple_driver')
     rospy.spin()
+    rospy.loginfo('Driver: shutdown')
