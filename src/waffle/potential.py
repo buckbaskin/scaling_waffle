@@ -172,7 +172,9 @@ class NaivePotential(Potential):
             accum += vector[i]*vector[i]
         return math.sqrt(accum)
 
-    def generate_plan(self, start, goal):
+    def generate_plan(self, start, goal, debug=None):
+        if debug is not None:
+            debug('potential generate plane '+str(goal))
         deck = deque()
         deck.appendleft(start)
 
@@ -192,7 +194,7 @@ class NaivePotential(Potential):
             dx = total_force[0]*step_size
             dy = total_force[1]*step_size
 
-
+            print('d: %f , %f' % (dx, dy,))
             new_pose = Pose()
             new_pose.position.x = next_.position.x+dx
             new_pose.position.y = next_.position.y+dy

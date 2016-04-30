@@ -20,10 +20,9 @@ positions = [None]
 goals = []
 
 start = None
-end = Odometry()
-end.pose.pose.position.x = 30
-end.pose.pose.position.y = 30
-waiting_for_plan = True
+end = Pose()
+end.position.x = 30
+end.position.y = 30
 
 def distance(pose1, pose2):
     rospy.loginfo(''+str(type(pose1))+' '+str(type(pose2)))
@@ -36,10 +35,7 @@ def distance(pose1, pose2):
 def odom_cb(odom):
     global start
     if start is None:
-        start = odom
-        return
-    if waiting_for_plan:
-        rospy.loginfo('waiting_for_plan')
+        start = odom.pose.pose
         return
 
     positions[0] = odom
@@ -92,7 +88,13 @@ if __name__ == '__main__':
     get_plan = rospy.ServiceProxy('/potential/plan', Plan)
     rospy.loginfo('found potential plan service')
 
-    resp1 = get_plan()
+    rate_limit = rospy.Rate(2)
+    while start is None:
+        rate_limit.sleep()
+
+    rospy.loginfo('\n'+str(start)+'\n'+str(end))
+
+    resp1 = get_plan(start, end)
     goals = resp1.allpoints
     rospy.loginfo('I got a %d step plan' % (len(goals)))
     waiting_for_plan = False
