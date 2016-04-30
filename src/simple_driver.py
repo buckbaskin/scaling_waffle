@@ -52,6 +52,11 @@ def odom_cb(odom):
             if distance(end, odom.pose.pose) > .01:
                 rospy.loginfo('Driver: get a new set of goals')
                 goals = get_plan(odom.pose.pose, end).allpoints
+                if (len(goals) == 0):
+                    rospy.loginfo('Driver: arrived at goal')
+                    DRIVER.publish(Twist())
+                    import sys
+                    sys.exit(0)
             else:
                 rospy.loginfo('Driver: empty goals list')
                 DRIVER.publish(Twist())
@@ -86,6 +91,16 @@ def odom_cb(odom):
         current_direction = quaternion_to_heading(current_position.orientation)
 
         dtheta = goal_direction - current_direction
+
+        while dtheta > 2*math.pi:
+            dtheta = dtheta - 2*math.pi
+        while dtheta < -2*math.pi:
+            dtheta = dtheta + 2*math.pi
+        if dtheta > math.pi:
+            dtheta = -2*math.pi + dtheta
+        if dtheta < -math.pi:
+            dtheta = 2*math.pi + dtheta
+
 
         t.angular.z = dtheta/(2.0*dt)
 
@@ -132,6 +147,10 @@ if __name__ == '__main__':
     resp1 = get_plan(start, end)
     goals = resp1.allpoints
     rospy.loginfo('I got a %d step plan' % (len(goals)))
+    if (len(goals) == 0):
+        rospy.loginfo('already at goal')
+        import sys
+        sys.exit(0)
     waiting_for_plan = False
     
     DRIVER = rospy.Publisher('/cmd_vel', Twist, queue_size=1)

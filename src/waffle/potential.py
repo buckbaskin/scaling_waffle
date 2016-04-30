@@ -148,7 +148,7 @@ class NaivePotential(Potential):
         if distance_from_obstacle <= 0.001:
             return (1000000*(p_y-o_y)/abs(p_y-o_y), 1000000*(p_x-o_x)/abs(p_x-o_x),)
         else:
-            new_magnitude = 1.0/distance_from_obstacle
+            new_magnitude = 1.0/(distance_from_obstacle*distance_from_obstacle)
             dx = new_magnitude*cos(angle)
             dy = new_magnitude*sin(angle)
 
@@ -192,6 +192,10 @@ class NaivePotential(Potential):
 
         distance = (math.pow(next_.position.x-goal.position.x, 2) 
             + math.pow(next_.position.y-goal.position.y, 2))
+
+        if distance < .01:
+            debug('the start distance is very small')
+            return []
 
         debug('dist: %f' % (distance,))
 
