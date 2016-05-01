@@ -324,12 +324,25 @@ class RRT(dict):
         return self.find_nearest_node_up(pose, self[next_id].kd_parent, depth-1, best_id, best_distance)
 
     def generate_plan(self):
+        end_id = 0
         if self.reached_goal():
             nodeheap = []
-            heappush(nodeheap, (distance_function(self[0], self.goal)))
+            heappush(nodeheap, (distance_function(self[0], self.goal), 0))
             
-            # TODO(buckbaskin):
-            end_id = 0
+            while(len(nodeheap) > 0):
+                heuristic, next_node_id = heappop(nodeheap)
+                # I know this condition will be true because self.reached_goal()
+                if distance_function(self[next_node_id], self.goal) < 0.1:
+                    end_id = next_node_id
+                    break
+                else:
+                    next_node_distance = heuristic - distance_function(self[next_node_id], self.goal)
+                    
+                    for child_id in self[next_node_id].rrt_children:
+                        child_distance = next_node_distance + distance_function(self[child_id], self[next_node_id])
+                        child_heuristic = distance_function(self[child_id], self.goal) + child_distance
+                        heappush(nodeheap, (child_heuristic, child_id))
+
         else:
             end_id = self.find_nearest_node(self.goal)
 
