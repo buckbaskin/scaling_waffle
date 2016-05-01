@@ -133,9 +133,27 @@ class RRT(dict):
 
         self.next_id = 1
 
-    def add_node_kd(self, rrt_node_id):
-        # TODO(buckbaskin):
-        pass
+    def add_node_kd(self, rrt_node_id, depth=0, compare_id=0):
+        '''
+        The no code repeating version of adding a node to a kd tree
+        '''
+        if depth % 2 == 0:
+            feature = 'x'
+        else:
+            feature = 'y'
+
+        if getattr(self[rrt_node_id], feature) < getattr(self[compare_id], feature):
+            side = 'left'
+        else:
+            side = 'right'
+
+        if getattr(self[compare_id], side) is None:
+            # if there is no child for the given node on this side
+            setattr(self[compare_id], side, rrt_node_id):
+            return
+        else:
+            # if there is a child on this side, recursively call...
+            self.add_node_kd(rrt_node_id, depth+1, get(self[compare_id], side))
 
     def add_node_rrt(self, pose):
         # find its closest neighbor by id
@@ -259,6 +277,7 @@ class RRT(dict):
         pass
 
     def remove_node_by_id(self, pose):
+        # TODO(buckbaskin):
         # remove child id from rrt parent
         # remove children recursively
         # once I have no children/am a rrt leaf node
