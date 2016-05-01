@@ -408,6 +408,10 @@ class RRT(dict):
             self.remove_node_by_id(root_index)
         else:
             for child_id in self[root_index].rrt_children:
+                # TODO(buckbaskin):
+                # check the half way point to each child, remove the child
+                #   if there is a node at halfway
+                # else call prune_recursive
                 self.prune_recursive(child_id)
 
 

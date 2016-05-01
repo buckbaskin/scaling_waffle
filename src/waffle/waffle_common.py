@@ -1,7 +1,7 @@
 from collections import deque
 from geometry_msgs.msg import Pose
 
-ROBOT_RADIUS = .5
+ROBOT_RADIUS = .6
 
 class Planner(object):
     '''
