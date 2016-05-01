@@ -294,9 +294,13 @@ class RRT(dict):
         del self[destroy_id]
 
     def readd_children_kd(self, node_id):
-        # TODO(buckbaskin):
         # add this node and all children to the kd tree again
-        pass
+        if self[node_id].left is not None:
+            self.readd_children_kd(self[node_id].left)
+        if self[node_id].right is not None:
+            self.readd_children_kd(self[node_id].right)
+
+        self.add_node_kd(node_id)
 
     def remove_child_rrt(self, parent_id, child_id):
         # TODO(buckbaskin):
