@@ -142,7 +142,7 @@ class RRT(dict):
         else:
             feature = 'y'
 
-        if getattr(self[rrt_node_id], feature) < getattr(self[compare_id], feature):
+        if getattr(self[rrt_node_id].position, feature) < getattr(self[compare_id].position, feature):
             side = 'kd_left'
         else:
             side = 'kd_right'
@@ -265,8 +265,20 @@ class RRT(dict):
         return self.find_nearest_node_up(pose, best_id, depth, best_id, best_distance)
 
     def find_nearest_node_down(self, pose, depth=0, root_index=0):
-        # TODO(buckbaskin):
-        pass
+        if (depth % 2) == 0:
+            feature = 'x'
+        else:
+            feature = 'y'
+
+        if getattr(pose.position, feature) < getattr(self[root_index].position, feature):
+            side = 'kd_left'
+        else:
+            side = 'kd_right'
+
+        if getattr(self[root_index], side) is None:
+            return (root_index, self.distance_function(self[root_index], pose), depth,)
+        else:
+            return find_nearest_node_down(pose, depth+1, getattr(self[root_index], side))
 
     def find_nearest_node_up(self, pose, next_id, depth, best_id, best_distance):
         if depth < 0 or next_id is None: # gone too far
@@ -282,7 +294,7 @@ class RRT(dict):
         else:
             feature = 'y'
 
-        axial_distance = getattr(pose, feature) - getattr(self[parent_id], feature)
+        axial_distance = getattr(pose.position, feature) - getattr(self[parent_id].position, feature)
 
         if abs(axial_distance) < best_distance:
             # there could be a better node on the axis or on the other side
