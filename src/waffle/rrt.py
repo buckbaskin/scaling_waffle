@@ -381,6 +381,11 @@ class RRTBase(Planner):
         self.remove_by_id(node_id)
 
     def remove_by_id(self, node_id):
+        ii = 0
+        while (ii < len(self.nodes[node_id])):
+            for child_id in self.nodes[node_id].children:
+                self.remove_by_id(child_id)
+
         if self.nodes[node_id].left is not None:
             # remove this child
             pass
@@ -403,7 +408,6 @@ class RRTBase(Planner):
         self.nodes.recursive_readd_from(self.nodes[node_id].right)
 
         # remove from rrt parent
-
         ii = 0
         while (ii < len(self.nodes[parent_id].children)):
             if self.nodes[parent_id].children[ii] == node_id:
