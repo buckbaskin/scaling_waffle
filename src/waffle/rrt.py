@@ -143,9 +143,9 @@ class RRT(dict):
             feature = 'y'
 
         if getattr(self[rrt_node_id], feature) < getattr(self[compare_id], feature):
-            side = 'left'
+            side = 'kd_left'
         else:
-            side = 'right'
+            side = 'kd_right'
 
         if getattr(self[compare_id], side) is None:
             # if there is no child for the given node on this side
@@ -277,11 +277,36 @@ class RRT(dict):
         # else False
         return distance_function(self[nearest_id], self.goal) < .1
 
-    def remove_node_by_id(self, pose):
+    def remove_node_by_id(self, destroy_id):
         # TODO(buckbaskin):
         # remove child id from rrt parent
+        self.remove_child_rrt(self[destroy_id].rrt_parent, destroy_id)
         # remove children recursively
+        for child_id in self[destroy_id].children:
+            self.remove_node_by_id(child_id)
         # once I have no children/am a rrt leaf node
         #   remove myself from my kd parent
+        self.remove_child_kd(self[destroy_id].kd_parent, destroy_id)
         #   add all remaining kd-children back to the kd tree
+        self.readd_children_kd(self[destroy_id].kd_left)
+        self.readd_children_kd(self[destroy_id].kd_right)
+        # remove self from the dict of points
+        del self[destroy_id]
+
+    def readd_children_kd(self, node_id):
+        # TODO(buckbaskin):
+        # add this node and all children to the kd tree again
         pass
+
+    def remove_child_rrt(self, parent_id, child_id):
+        # TODO(buckbaskin):
+        # remove the given child from the given parent
+        pass
+
+    def remove_child_kd(self, parent_id, child_id):
+        # TODO(buckbaskin):
+        # remove the given child from the given parent
+        pass
+
+    def set_goal(self, pose):
+        self.goal = pose
