@@ -140,17 +140,23 @@ if __name__ == '__main__':
 
     ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
 
-    rospy.loginfo('waiting for potential plan service')
-    rospy.wait_for_service('/potential/plan')
-
-    get_plan = rospy.ServiceProxy('/potential/plan', Plan)
-    rospy.loginfo('found potential plan service')
+    rrt = True
+    if rrt:
+        rospy.loginfo('waiting for rrt plan service')
+        rospy.wait_for_service('/rrt/plan')
+        get_plan = rospy.ServiceProxy('/rrt/plan', Plan)
+        rospy.loginfo('found rrt plan service')
+    else:
+        rospy.loginfo('waiting for potential plan service')
+        rospy.wait_for_service('/potential/plan')
+        get_plan = rospy.ServiceProxy('/potential/plan', Plan)
+        rospy.loginfo('found potential plan service')
 
     rate_limit = rospy.Rate(2)
     while start is None:
         rate_limit.sleep()
 
-    rospy.loginfo('start and end\n'+str(start)+'\n'+str(end))
+    # rospy.loginfo('start and end\n'+str(start)+'\n'+str(end))
 
     resp1 = get_plan(start, end)
     goals = resp1.allpoints

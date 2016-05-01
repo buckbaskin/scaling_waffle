@@ -35,10 +35,11 @@ def plan_srv(srv):
 if __name__ == '__main__':
     rospy.init_node('waffle_rrt')
     RRT_SRV = rospy.Service('/rrt/plan', Plan, plan_srv)
+    GOAL_SUB = rospy.Subscriber('/rrt/goal', Pose, goal_cb)
     ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
-    LASER_SUB = rospy.Subscriber('/laser_scan', LaserScan, laser_cb)
+    LASER_SUB = rospy.Subscriber('/base_scan', LaserScan, laser_cb)
 
     rospy.loginfo('waffle_rrt start')
 
     while not rospy.is_shutdown():
-        CLASSIC_WAFFLE.expand_tree()
+        CLASSIC_WAFFLE.expand_tree_biased()
