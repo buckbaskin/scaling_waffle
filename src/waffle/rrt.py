@@ -103,9 +103,9 @@ class ObstacleMap(object):
         pass
 
 
-class SpecialPose(Pose):
+class RRTNode(Pose):
     def __init__(self, pose):
-        super(SpecialPose, self).__init__()
+        super(RRTNode, self).__init__()
         self.position.x = pose.position.x
         self.position.y = pose.position.y
         self.position.z = pose.position.z
@@ -113,479 +113,155 @@ class SpecialPose(Pose):
         self.orientation.x = pose.orientation.x
         self.orientation.y = pose.orientation.y
         self.orientation.z = pose.orientation.z
-        self.parent = None # this is for the RRT, positional children
-        self.children = []
+        
+        self.rrt_parent = None # this is for the RRT, positional children
+        self.rrt_children = []
+
         self.kd_parent = None # this is for the kd tree, positional children
-        self.left = None # this is for the kd tree, positional children
-        self.right = None # this is for the kd tree, positional children
+        self.kd_left = None # this is for the kd tree, positional children
+        self.kd_right = None # this is for the kd tree, positional children
 
-class NodeTree(dict):
-    '''
-    a kd-tree for finding the nearest nodes to a given point
-    '''
-    def __init__(self, start_pose):
-        super(NodeTree, self).__init__()
-        self[0] = SpecialPose(start_pose)
-        self[0].parent = None
-        self[0].left = None # this is for the kd tree, positional children
-        self[0].right = None # this is for the kd tree, positional children
-        self.next_id = 1
+class RRT(dict):
+    def __init__(self):
+        super(RRT, self).__init__()
 
-    def distance_function(self, pose1, pose2):
-        return math.sqrt(math.pow(pose1.position.x - pose2.position.x, 2)+
-            math.pow(pose1.position.y - pose2.position.y, 2))
-
-    def find_nearest_node(self, test_pose):
-        print('find nearest node')
-        node_id, best_distance, depth = self.find_nearest_node_down(test_pose)
-        node_id = self.find_nearest_node_up(test_pose, node_id, best_distance, node_id, depth)
-        return node_id
-
-    def find_nearest_node_down(self, test_pose, depth=0, root_index=0):
-        if depth > 400:
-            print('exit on %d' % len(self))
-            return 0
-        if depth % 2 == 0:
-            # check x
-            print('x ->')
-            if test_pose.position.x < self[root_index].position.x:
-                # left
-                if self[root_index].left is None:
-                    # leaf
-                    print('x -> left None')
-                    return (root_index, self.distance_function(test_pose, self[root_index]), depth,)
-                else:
-                    # follow child down the rabbit hole
-                    print('x -> left %d' % self[root_index].left)
-                    return self.find_nearest_node_down(test_pose, depth+1, self[root_index].left)
-            else:
-                # right
-                if self[root_index].right is None:
-                    # leaf
-                    print('x -> right None')
-                    return (root_index, self.distance_function(test_pose, self[root_index]), depth,)
-                else:
-                    # follow child down the rabbit hole
-                    print('x -> right %d' % self[root_index].right)
-                    return self.find_nearest_node_down(test_pose, depth+1, self[root_index].right)
-        else:
-            # check y
-            if test_pose.position.y < self[root_index].position.y:
-                # left
-                if self[root_index].left is None:
-                    # leaf
-                    print('y -> left None')
-                    return (root_index, self.distance_function(test_pose, self[root_index]), depth,)
-                else:
-                    # follow child down the rabbit hole
-                    print('y -> left %d' % self[root_index].left)
-                    return self.find_nearest_node_down(test_pose, depth+1, self[root_index].left)
-            else:
-                # right
-                if self[root_index].right is None:
-                    # leaf
-                    print('y -> right None')
-                    return (root_index, self.distance_function(test_pose, self[root_index]), depth,)
-                else:
-                    # follow child down the rabbit hole
-                    print('y -> right %d' % self[root_index].right)
-                    return self.find_nearest_node_down(test_pose, depth+1, self[root_index].right)
-        return (0, float('inf'), depth,)
-
-    def find_nearest_node_up(self, test_pose, best_node_id, best_distance, 
-        pivot_index, depth):
-        if depth < 0 or pivot_index is None:
-            # end recursion
-            return best_node_id
-        if depth % 2 == 0:
-            # check x
-            if test_pose.position.x < self[pivot_index].position.x:
-                # the test pose is left of the pivot that I'm checking
-                if self[pivot_index].right is not None:
-                    # there are nodes to the right of the pivot
-                    crossover_distance = abs(test_pose.position.x-self[pivot_index].position.x)
-                    if crossover_distance >= best_distance:
-                        # check the pivot node, then check the others
-                        distance_to_pivot = self.distance_function(self[pivot_index], test_pose)
-                        if distance_to_pivot < best_distance:
-                            best_distance = distance_to_pivot
-                            best_node_id = pivot_index
-                        # there may be any nodes on the other side that are closer
-                        other_best_id, other_best_distance, other_depth = self.find_nearest_node_down(test_pose, depth, self[pivot_index].right)
-                        if other_best_distance < best_distance:
-                            # there is a closer node
-                            return self.find_nearest_node_up(test_pose, other_best_id, other_best_distance, self[pivot_index].kd_parent, depth-1)
-                # there are no nodes or no closer nodes to the right of the pivot
-                # keep moving up
-                return self.find_nearest_node_up(test_pose, best_node_id, best_distance, self[pivot_index].kd_parent, depth-1)
-            else:
-                # the test pose is right of the pivot that I'm checking
-                if self[pivot_index].left is not None:
-                    # there are nodes to the right of the pivot
-                    crossover_distance = abs(test_pose.position.x-self[pivot_index].position.x)
-                    if crossover_distance >= best_distance:
-                        # there may be any nodes on the other side that are closer
-                        # check the pivot node, then check the others
-                        distance_to_pivot = self.distance_function(self[pivot_index], test_pose)
-                        if distance_to_pivot < best_distance:
-                            best_distance = distance_to_pivot
-                            best_node_id = pivot_index
-
-                        other_best_id, other_best_distance, other_depth = self.find_nearest_node_down(test_pose, depth, self[pivot_index].left)
-                        if other_best_distance < best_distance:
-                            # there is a closer node
-                            return self.find_nearest_node_up(test_pose, other_best_id, other_best_distance, self[pivot_index].kd_parent, depth-1)
-                # there are no nodes or no closer nodes to the right of the pivot
-                # keep moving up
-                return self.find_nearest_node_up(test_pose, best_node_id, best_distance, self[pivot_index].kd_parent, depth-1)
-        else:
-            # check y
-            if test_pose.position.y < self[pivot_index].position.y:
-                # left
-                pass
-            else:
-                # right
-                pass
-        return 0
-
-    def add_node(self, pose, depth=0, root_index=0):
-        if depth == 0:
-            print('add node... %f, %f' % (pose.position.x, pose.position.y,))
-        # add the node to a dict
-        self[self.next_id] = pose
-        self[self.next_id].left = None
-        self[self.next_id].right = None
-        # set the node's parent
-        if depth % 2 == 0:
-            # check x
-            if pose.position.x < self[root_index].position.x:
-                # left
-                if self[root_index].left is None:
-                    self[root_index].left = self.next_id
-                    self[self.next_id].parent = root_index
-                else:
-                    self.add_node(pose, depth=depth+1, root_index=self[root_index].left)
-            else:
-                # right
-                if self[root_index].right is None:
-                    self[root_index].right = self.next_id
-                    self[self.next_id].parent = root_index
-                else:
-                    self.add_node(pose, depth=depth+1, root_index=self[root_index].right)
-        else:
-            # check y
-            if pose.position.y < self[root_index].position.y:
-                # left
-                if self[root_index].left is None:
-                    self[root_index].left = self.next_id
-                    self[self.next_id].parent = root_index
-                else:
-                    self.add_node(pose, depth=depth+1, root_index=self[root_index].left)
-            else:
-                # right
-                if self[root_index].right is None:
-                    self[root_index].right = self.next_id
-                    self[self.next_id].parent = root_index
-                else:
-                    self.add_node(pose, depth=depth+1, root_index=self[root_index].right)
-        # increment the node's next insert index
-        self.next_id += 1
-        # return the id of the inserted node
-        return self.next_id - 1
-
-    def recursive_readd_from(self, node_id):
-        if self[node_id].left is not None:
-            self.recursive_readd_from(self[node_id].left)
-        if self[node_id].right is not None:
-            self.recursive_readd_from(self[node_id].right)
-        self.add_node(self[node_id])
-
-class RRTBase(Planner):
-    def __init__(self, minx=-100.0, maxx=100.0, miny=-100.0, maxy=100.0):
-        super(RRTBase, self).__init__()
-        self.minx = minx
-        self.maxx = maxx
-        self.miny = miny
-        self.maxy = maxy
-        self.obstacles = ObstacleMap(minx, maxx, miny, maxy)
-
-        self.step_size = .1
-
-        self.nodes = NodeTree(Pose())
-
-        self.start = Pose()
+        self.obstacles = ObstacleMap(-5, 45, -5, 45)
         self.goal = None
 
-    def set_root(self, pose):
-        self.nodes = NodeTree(pose)
+        # start self at odometry 0
+        self[0] = RRTNode(Pose())
 
-    def set_goal(self, pose):
-        self.goal = pose
+        self.next_id = 1
 
-    def new_scan(self, pose, scan):
-        '''
-        based on a new set of scan data collected at a given pose, update
-        obstacles, then update/prune the tree
+    def add_node_kd(self, rrt_node_id):
+        # TODO(buckbaskin):
+        pass
 
-        - Generate new obstacles (every scan is a small obstacle)
-        - For each new obstacle, find the nearest tree node. If the tree node is
-        in the obstacle, prune it. Repeat until there are no nodes to prune for
-        that obstacle
+    def add_node_rrt(self, pose):
+        # find its closest neighbor by id
+        # set that to be its parent
+        self[self.next_id] = RRTNode(pose)
+        self[self.next_id].rrt_parent = self.find_nearest_node(pose)
+        self[self.next_id].rrt_children = []
+        self.add_node_kd(self.next_id)
+        self.next_id += 1
+        return self.next_id - 1
 
-        Input:
-            Pose
-            LaserScan
-        Output:
-            None
-        '''
-        # add in all the new obstacles
-        angle = scan.angle_min+quaternion_to_heading(pose.orientation)
-        for reading in scan.ranges:
-
-            # add a new obstacle
-
-            if reading > scan.range_max - .01:
-                continue
-            x = pose.position.x + reading*cos(angle)
-            y = pose.position.x + reading*cos(angle)
-            radius = reading*scan.angle_increment/2.0
-
-            new_pose = Pose()
-            new_pose.position.x = x
-            new_pose.position.y = y
-
-            self.obstacles.add_obstacle(deepcopy(new_pose), radius)
-
-            # check if I need to prune
-            self.prune_tree(new_pose, radius)
-
-            angle += scan.angle_increment
-
-        # remove previously seen obstacles that are too close to existing
-        #   obstacles
-
-        self.obstacles.condense()
-
-    def add_node(self, pose):
-        rrt_parent = self.find_nearest_node(pose)
-        rrt_children = []
-        location = pose
-        sp = SpecialPose(location)
-        sp.parent = rrt_parent
-        sp.children = rrt_parent
-        self.nodes.add_node(sp)
-
-    def remove_node(self, pose):
-        node_id = self.find_nearest_node(pose)
-
-        self.remove_by_id(node_id)
-
-    def remove_by_id(self, node_id):
-        ii = 0
-        while (ii < len(self.nodes[node_id])):
-            for child_id in self.nodes[node_id].children:
-                self.remove_by_id(child_id)
-
-        if self.nodes[node_id].left is not None:
-            # remove this child
-            pass
-        if self.nodes[node_id].right is not None:
-            # remove this child
-            pass
-
-        parent_id = self.nodes[node_id].parent
-
-        kd_parent = self.nodes[node_id].kd_parent
-
-        if self.nodes[kd_parent].left == node_id:
-            self.nodes[kd_parent].left = None
-        elif self.nodes[kd_parent].right == node_id:
-            self.nodes[kd_parent].right = None
-
-        # readd kd nodes
-
-        self.nodes.recursive_readd_from(self.nodes[node_id].left)
-        self.nodes.recursive_readd_from(self.nodes[node_id].right)
-
-        # remove from rrt parent
-        ii = 0
-        while (ii < len(self.nodes[parent_id].children)):
-            if self.nodes[parent_id].children[ii] == node_id:
-                del self.nodes[parent_id].children[ii]
-            else:
-                ii += 1
-
-        # remove self from dict
-
-        del self.nodes[node_id]        
-
-    def expand_tree_biased(self):
-        if self.goal is None:
-            self.expand_tree()
-            return
-        if random.uniform(0.0, 1.0) < .05:
-            choose_pose = self.goal
-
-            nearest_id = self.find_nearest_node(choose_pose)
-
-            dx = self.goal.position.x - self.nodes[nearest_id].position.x
-            dy = self.goal.position.x - self.nodes[nearest_id].position.y
-
-            dist = math.sqrt(dx*dx + dy*dy)
-            dx = dx/dist*self.step_size
-            dy = dy/dist*self.step_size
-
-            if dist < .01:
-                # found goal
-                return None
-            elif dist < self.step_size:
-                if not self.obstacles.check_collision(self.goal):
-                    self.add_node(self.goal)
-                return None
-            else:
-                choose_pose.position.x = self.nodes[nearest_id].position.x + dx
-                choose_pose.position.y = self.nodes[nearest_id].position.y + dy
-                # I need to take steps towards the goal.
-                # TODO(buckbaskin): go until collision, only add the last one
-                #   before collision
-                while dist > self.step_size:
-                    if self.obstacles.check_collision(choose_pose):
-                        return None
-                    else:
-                        self.add_node(choose_pose)
-
-                        choose_pose.position.x += dx
-                        choose_pose.position.y += dy
-
-                        dx = self.goal.position.x - choose_pose.position.x
-                        dy = self.goal.position.y - choose_pose.position.x
-
-                        dist = math.sqrt(dx*dx + dy*dy)
-                        dx = dx/dist*self.step_size
-                        dy = dy/dist*self.step_size
-                if dist < self.step_size:
-                    if self.obstacles.check_collision(self.goal):
-                        return None
-                    else:
-                        self.add_node(self.goal)
-                return None
-        else:
-            self.expand_tree()
+    def distance_function(self, pose1, pose2):
+        # TODO(buckbaskin):
+        pass
 
     def expand_tree(self):
-        '''
-        Based on all past information, expand the tree
-        '''
-
-        x = random.uniform(self.minx, self.maxx)
-        y = random.uniform(self.miny, self.maxy)
-
-        choose_pose = Pose()
-        choose_pose.position.x = x
-        choose_pose.position.y = y
-
-        while self.obstacles.check_collision(choose_pose):
+        if self.reached_goal():
+            # don't expand
+            return
+        if self.goal is not None and random.uniform(0.0, 1.0) < .10:
+            # choose the goal with 10% certainty
+            expand_to_pose = self.goal
+        else:
+            # put the expand_to_pose in random free space
             x = random.uniform(self.minx, self.maxx)
             y = random.uniform(self.miny, self.maxy)
 
-            choose_pose = Pose()
-            choose_pose.position.x = x
-            choose_pose.position.y = y
+            expand_to_pose = Pose()
+            expand_to_pose.position.x = x
+            expand_to_pose.position.y = y
 
-        # now I have a point in the free space
+            while self.obstacles.check_collision(expand_to_pose):
+                x = random.uniform(self.minx, self.maxx)
+                y = random.uniform(self.miny, self.maxy)
 
-        nearest_id = self.find_nearest_node(choose_pose)
+                expand_to_pose.position.x = x
+                expand_to_pose.position.y = y
 
-        dx = choose_pose.position.x - self.nodes[nearest_id].position.x
-        dy = choose_pose.position.x - self.nodes[nearest_id].position.y
+        expand_to_pose = RRTNode()
 
-        dist = math.sqrt(dx*dx + dy*dy)
-        dx = dx/dist*self.step_size
-        dy = dy/dist*self.step_size
+        # try to expand up to that node, storing the expand_from node
+        expand_from_id = self.find_nearest_node(node)
+        expand_from_pose = self[expand_from_id]
 
-        if dist < .01:
-            return None # point already taken care of...
-        elif dist < 2.0*self.step_size:
-            # if the point is close, add the choose point as the child
-            if not self.obstacles.check_collision(choose_pose):
-                self.add_node(choose_pose)
-        else:
-            # TODO(buckbaskin): take steps until collision, then add the last one
-            # take a step towards the chosen
-            choose_pose.position.x = self.nodes[nearest_id].position.x + dx
-            choose_pose.position.y = self.nodes[nearest_id].position.y + dy
-            if not self.obstacles.check_collision(choose_pose):
-                self.add_node(choose_pose)
+        collision_step = 0.1
+        plan_step = 1.0
 
-    def prune_tree(self, pose, radius):
-        '''
-        Find the nearest node to the pose/radius. If it is within the radius
-        /collision, then remove that node from the tree (and its children)
+        collision_steps_per_plan = int(plan_step/collision_step)
 
-        Repeat until the nearest node isn't a collision
-        '''
-        nearest_id = self.find_nearest_node(pose)
-        dx = pose.position.x - self.nodes[nearest_id].position.x
-        dy = pose.position.y - self.nodes[nearest_id].position.y
-        dist = math.sqrt(dx*dx + dy*dy)
-        dist += -radius
-        dist += -ROBOT_RADIUS
+        count = 1
 
-        while dist < 0:
-            # collision!
-            self.nodes = self.remove_node(nearest_id)
+        dx = expand_to_pose.position.x - expand_from_pose.position.x
+        dy = expand_to_pose.position.y - expand_from_pose.position.y
 
-            nearest_id = self.find_nearest_node(pose)
-            dx = pose.position.x - self.nodes[nearest_id].position.x
-            dy = pose.position.y - self.nodes[nearest_id].position.y
-            dist = math.sqrt(dx*dx + dy*dy)
-            dist += -radius
-            dist += -ROBOT_RADIUS
+        distance = math.sqrt(math.pow(dx, 2) + math.pow(dy, 2))
 
+        collision_steps = int(distance/collision_step)
+
+        dx = (dx / distance) * collision_step
+        dy = (dy / distance) * collision_step
+
+        collision_pose = Pose()
+        collision_pose.position.x = expand_from_pose.position.x + dx
+        collision_pose.position.y = expand_from_pose.position.y + dy
+
+        # check collision
+        # self.obstacles.check_collision(choose_pose)
+
+        #   if that node is less than one step away, check collision and add it
+        #   else, maintain the last step and second to last step.
+        #       if there is a collision in the last step, add the second to last
+        #           as an element in the rrt
+        #   otherwise, loop until the first step reaches the goal, see first if
+        while count <= collision_steps:
+            if self.obstacles.check_collision(collision_pose):
+                # if there was a collision
+                if not (count % collision_steps_per_plan) == 1:
+                    # if I've advanced past the first node after a plan step
+                    # step back
+                    collision_pose.position.x += -dx
+                    collision_pose.position.y += -dy
+                    # make a new node at that point
+                    self.add_node_rrt(collision_pose)
+                    break
+                else:
+                    # I just added a plan-step node
+                    break
+            else:
+                # there isn't an obstacle, I can keep going
+                if (count % collision_steps_per_plan) == 0:
+                    # add a planner-step pose (every meter)
+                    self.add_node_rrt(collision_pose)
+
+                collision_pose.position.x += dx
+                collision_pose.position.y += dy
+                distance += -collision_step
+                count += 1
+
+        if distance <= collision_step:
+            # the loop ran all the way through
+            if not self.obstacles.check_collision(expand_to_pose):
+                # if there isn't a collision at the expand_to pose
+                self.add_node_rrt(expand_to_pose)
+
+    
     def find_nearest_node(self, pose):
-        '''
-        kd-tree?
-        Input:
-            Pose
-        Output
-            int (node id)
-        '''
-        return self.nodes.find_nearest_node(pose)
+        # TODO(buckbaskin):
+        pass
 
-    def find_path(self, start_id, goal_id):
-        '''
-        Find a path through the tree from the start id to the goal id
-        Input:
-            int
-            int
-        Output:
-            list of int
-        '''
-        #TODO(buckbaskin): implement this
-        # start = self.nodes[start_id]
-        # goal = self.nodes[goal_id]
-        return [start_id, 0, goal_id]
+    def find_nearest_node_down(self, pose, depth=0, root_index=0):
+        # TODO(buckbaskin):
+        pass
 
-    def smooth_path(self, path):
-        '''
-        For a given path, try to cut corners and find an easier path than just
-        following the RRT
+    def find_nearest_node_up(self, pose, depth):
+        # TODO(buckbaskin):
+        pass
 
-        Input:
-            list of int
-        Output:
-            list of int
-        '''
-        #TODO(buckbaskin): implement this
-        return path
+    def reached_goal(self):
+        # TODO(buckbaskin):
+        # check if the nearest pose is less than one collision step
+        pass
 
-    def generate_plan(self, start, goal):
-        '''
-        Based on the current tree, generate a plan for reaching the goal pose
-        '''
-        #TODO(buckbaskin): implement this
-        deck = deque()
-        deck.append(start)
-        deck.append(Pose())
-        deck.append(goal)
-        return deck
+    def remove_node_by_id(self, pose):
+        # remove child id from rrt parent
+        # remove children recursively
+        # once I have no children/am a rrt leaf node
+        #   remove myself from my kd parent
+        #   add all remaining kd-children back to the kd tree
+        pass
