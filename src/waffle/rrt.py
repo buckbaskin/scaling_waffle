@@ -150,6 +150,7 @@ class RRT(dict):
         if getattr(self[compare_id], side) is None:
             # if there is no child for the given node on this side
             setattr(self[compare_id], side, rrt_node_id):
+            self[rrt_node_id].kd_parent = compare_id
             return
         else:
             # if there is a child on this side, recursively call...
@@ -260,16 +261,49 @@ class RRT(dict):
                 self.add_node_rrt(expand_to_pose)
 
     def find_nearest_node(self, pose):
-        # TODO(buckbaskin):
-        pass
+        best_id, best_distance, depth = self.find_nearest_node_down(pose)
+        return self.find_nearest_node_up(pose, best_id, depth, best_id, best_distance)
 
     def find_nearest_node_down(self, pose, depth=0, root_index=0):
         # TODO(buckbaskin):
         pass
 
-    def find_nearest_node_up(self, pose, depth):
-        # TODO(buckbaskin):
-        pass
+    def find_nearest_node_up(self, pose, next_id, depth, best_id, best_distance):
+        if depth < 0 or next_id is None: # gone too far
+            return best_id
+        if depth == 0 or self[next_id].parent is None: # stop at top of tree
+            return best_id
+
+        parent_id = self[next_id].kd_parent
+        parent_depth = depth - 1
+
+        if (parent_depth % 2) == 0:
+            feature = 'x'
+        else:
+            feature = 'y'
+
+        axial_distance = getattr(pose, feature) - getattr(self[parent_id], feature)
+
+        if abs(axial_distance) < best_distance:
+            # there could be a better node on the axis or on the other side
+            parent_distance = self.distance_function(pose, self[parent_id])
+            if parent_distance < best_distance:
+                best_id = parent_id
+                best_distance = parent_distance
+
+            if axial_distance < 0:
+                side = 'kd_left'
+            else:
+                side = 'kd_right'
+
+            other_id, other_distance, _depth = find_nearest_node_down(pose, parent_depth+1, getattr(self[parent_id], side))
+            if other_distance < best_distance:
+                best_id = other_id
+                best_distance = other_distance
+        
+        # now I for sure have the best node 
+        return self.find_nearest_node_up(pose, self[next_id].kd_parent, depth-1, best_id, best_distance)
+
 
     def reached_goal(self):
         nearest_id = self.find_nearest_node(self.goal)
