@@ -352,13 +352,64 @@ class RRT(dict):
             end_id = self[end_id].rrt_parent
             deck.appendleft(self[end_id])
 
+        final_list = list(deck)
+        if len(final_list) > 10:
+            final_list = final_list[0:10]
+
         pr = PlanResponse()
-        pr.allpoints = list(deck)
+        pr.allpoints = final_list
         return pr
 
     def new_scan(self, from_pose, scan):
         # TODO(buckbaskin):
-        pass
+        # add in all the new obstacles
+        angle = scan.angle_min+quaternion_to_heading(pose.orientation)
+        for reading in scan.ranges:
+
+            # add a new obstacle
+
+            if reading > scan.range_max - .01:
+                continue
+            x = pose.position.x + reading*cos(angle)
+            y = pose.position.x + reading*cos(angle)
+            radius = reading*scan.angle_increment
+
+            new_pose = Pose()
+            new_pose.position.x = x
+            new_pose.position.y = y
+
+            self.obstacles.add_obstacle(deepcopy(new_pose), radius)
+
+            # check if I need to prune
+            self.prune_local(new_pose, radius)
+
+
+            angle += scan.angle_increment
+
+        self.prune_recursive()
+
+        # remove previously seen obstacles that are too close to existing
+        #   obstacles
+
+        self.obstacles.condense()
+
+    def prune_local(self, new_pose, radius):
+        # remove any nodes in collision with a new obstacle
+        nearest_id = self.find_nearest_node(new_pose)
+
+        while distance_function(self[nearest_id], new_pose) < radius:
+            self.remove_node_by_id(nearest_id)
+            nearest_id = self.find_nearest_node(new_pose)
+
+    def prune_recursive(self, root_index=0):
+        # every node is on the rrt tree, so if we remove the node, we don't need
+        #   to worry about any branching, it will already remove
+        if self.obstacles.check_collision(self[root_index]):
+            self.remove_node_by_id(root_index)
+        else:
+            for child_id in self[root_index].rrt_children:
+                self.prune_recursive(child_id)
+
 
     def reached_goal(self):
         nearest_id = self.find_nearest_node(self.goal)
