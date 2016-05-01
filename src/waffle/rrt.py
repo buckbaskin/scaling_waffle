@@ -282,7 +282,7 @@ class RRT(dict):
         # remove child id from rrt parent
         self.remove_child_rrt(self[destroy_id].rrt_parent, destroy_id)
         # remove children recursively
-        for child_id in self[destroy_id].children:
+        for child_id in self[destroy_id].rrt_children:
             self.remove_node_by_id(child_id)
         # once I have no children/am a rrt leaf node
         #   remove myself from my kd parent
@@ -303,9 +303,13 @@ class RRT(dict):
         self.add_node_kd(node_id)
 
     def remove_child_rrt(self, parent_id, child_id):
-        # TODO(buckbaskin):
         # remove the given child from the given parent
-        pass
+        ii = 0
+        while ii < len(self[parent_id].rrt_children):
+            if self[parent_id].rrt_children[ii] == child_id:
+                del self[parent_id].rrt_children[ii]
+            else:
+                ii += 1
 
     def remove_child_kd(self, parent_id, child_id):
         # TODO(buckbaskin):
