@@ -344,7 +344,7 @@ class RRTBase(Planner):
 
         self.obstacles.condense()
 
-    def add_node(pose):
+    def add_node(self, pose):
         rrt_parent = self.find_nearest_node(pose)
         rrt_children = []
         location = pose
