@@ -312,9 +312,11 @@ class RRT(dict):
                 ii += 1
 
     def remove_child_kd(self, parent_id, child_id):
-        # TODO(buckbaskin):
         # remove the given child from the given parent
-        pass
+        if self[parent_id].left == child_id:
+            self[parent_id].left = None
+        if self[parent_id].right == child_id:
+            self[parent_id].right = None
 
     def set_goal(self, pose):
         self.goal = pose
