@@ -324,8 +324,24 @@ class RRT(dict):
         return self.find_nearest_node_up(pose, self[next_id].kd_parent, depth-1, best_id, best_distance)
 
     def generate_plan(self):
-        # TODO(buckbaskin):
-        return []
+        if self.reached_goal():
+            nodeheap = []
+            heappush(nodeheap, (distance_function(self[0], self.goal)))
+            
+            # TODO(buckbaskin):
+            end_id = 0
+        else:
+            end_id = self.find_nearest_node(self.goal)
+
+        deck = deque()
+        deck.appendleft(self[end_id])
+        while self[end_id].rrt_parent is not None:
+            end_id = self[end_id].rrt_parent
+            deck.appendleft(self[end_id])
+
+        pr = PlanResponse()
+        pr.allpoints = list(deck)
+        return pr
 
     def new_scan(self, from_pose, scan):
         # TODO(buckbaskin):
