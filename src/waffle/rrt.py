@@ -166,8 +166,9 @@ class RRT(dict):
         return self.next_id - 1
 
     def distance_function(self, pose1, pose2):
-        # TODO(buckbaskin):
-        pass
+        dx = pose1.position.x - pose2.position.x
+        dy = pose1.position.y - pose2.position.y
+        return math.sqrt(math.pow(dx, 2) + math.pow(dy, 2))
 
     def expand_tree(self):
         if self.reached_goal():
@@ -258,7 +259,6 @@ class RRT(dict):
                 # if there isn't a collision at the expand_to pose
                 self.add_node_rrt(expand_to_pose)
 
-    
     def find_nearest_node(self, pose):
         # TODO(buckbaskin):
         pass
