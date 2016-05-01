@@ -51,19 +51,19 @@ class ObstacleMap(object):
     def sub_divide(self):
         self.children = {'top':{'left':ObstacleMap(self.minx, self.midx,
                                     self.midy, self.maxy),
-                                'center': ObstacleMap(self.minx/2.0+self.midx/2.0,
+                                'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
                                     self.midy, self.maxy),
                                 'right': ObstacleMap(self.midx, self.maxx,
                                     self.midy, self.maxy)},
                         'middle':{'left':ObstacleMap(self.minx, self.midx,
                                     self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0),
-                                  'center': ObstacleMap(self.minx/2.0+self.midx/2.0,
+                                  'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
                                     self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0),
                                   'right': ObstacleMap(self.midx, self.maxx,
                                     self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0)},
                         'bottom':{'left':ObstacleMap(self.minx, self.midx,
                                     self.miny, self.midy),
-                                  'center': ObstacleMap(self.minx/2.0+self.midx/2.0,
+                                  'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
                                     self.miny, self.midy),
                                   'right': ObstacleMap(self.midx, self.maxx,
                                     self.miny, self.midy)}}
@@ -136,28 +136,37 @@ class NodeTree(dict):
             math.pow(pose1.position.y - pose2.position.y, 2))
 
     def find_nearest_node(self, test_pose):
+        print('find nearest node')
         node_id, best_distance, depth = self.find_nearest_node_down(test_pose)
         node_id = self.find_nearest_node_up(test_pose, node_id, best_distance, node_id, depth)
         return node_id
 
     def find_nearest_node_down(self, test_pose, depth=0, root_index=0):
+        if depth > 400:
+            print('exit on %d' % len(self))
+            return 0
         if depth % 2 == 0:
             # check x
+            print('x ->')
             if test_pose.position.x < self[root_index].position.x:
                 # left
                 if self[root_index].left is None:
                     # leaf
+                    print('x -> left None')
                     return (root_index, self.distance_function(test_pose, self[root_index]), depth,)
                 else:
                     # follow child down the rabbit hole
+                    print('x -> left %d' % self[root_index].left)
                     return self.find_nearest_node_down(test_pose, depth+1, self[root_index].left)
             else:
                 # right
                 if self[root_index].right is None:
                     # leaf
+                    print('x -> right None')
                     return (root_index, self.distance_function(test_pose, self[root_index]), depth,)
                 else:
                     # follow child down the rabbit hole
+                    print('x -> right %d' % self[root_index].right)
                     return self.find_nearest_node_down(test_pose, depth+1, self[root_index].right)
         else:
             # check y
@@ -165,17 +174,21 @@ class NodeTree(dict):
                 # left
                 if self[root_index].left is None:
                     # leaf
+                    print('y -> left None')
                     return (root_index, self.distance_function(test_pose, self[root_index]), depth,)
                 else:
                     # follow child down the rabbit hole
+                    print('y -> left %d' % self[root_index].left)
                     return self.find_nearest_node_down(test_pose, depth+1, self[root_index].left)
             else:
                 # right
                 if self[root_index].right is None:
                     # leaf
+                    print('y -> right None')
                     return (root_index, self.distance_function(test_pose, self[root_index]), depth,)
                 else:
                     # follow child down the rabbit hole
+                    print('y -> right %d' % self[root_index].right)
                     return self.find_nearest_node_down(test_pose, depth+1, self[root_index].right)
         return (0, float('inf'), depth,)
 
@@ -236,6 +249,8 @@ class NodeTree(dict):
         return 0
 
     def add_node(self, pose, depth=0, root_index=0):
+        if depth == 0:
+            print('add node... %f, %f' % (pose.position.x, pose.position.y,))
         # add the node to a dict
         self[self.next_id] = pose
         self[self.next_id].left = None
@@ -278,6 +293,13 @@ class NodeTree(dict):
         # return the id of the inserted node
         return self.next_id - 1
 
+    def recursive_readd_from(self, node_id):
+        if self[node_id].left is not None:
+            self.recursive_readd_from(self[node_id].left)
+        if self[node_id].right is not None:
+            self.recursive_readd_from(self[node_id].right)
+        self.add_node(self[node_id])
+
 class RRTBase(Planner):
     def __init__(self, minx=-100.0, maxx=100.0, miny=-100.0, maxy=100.0):
         super(RRTBase, self).__init__()
@@ -317,7 +339,7 @@ class RRTBase(Planner):
             None
         '''
         # add in all the new obstacles
-        angle = scan.min_angle+quaternion_to_heading(pose.orientation)
+        angle = scan.angle_min+quaternion_to_heading(pose.orientation)
         for reading in scan.ranges:
 
             # add a new obstacle
@@ -352,6 +374,46 @@ class RRTBase(Planner):
         sp.parent = rrt_parent
         sp.children = rrt_parent
         self.nodes.add_node(sp)
+
+    def remove_node(self, pose):
+        node_id = self.find_nearest_node(pose)
+
+        self.remove_by_id(node_id)
+
+    def remove_by_id(self, node_id):
+        if self.nodes[node_id].left is not None:
+            # remove this child
+            pass
+        if self.nodes[node_id].right is not None:
+            # remove this child
+            pass
+
+        parent_id = self.nodes[node_id].parent
+
+        kd_parent = self.nodes[node_id].kd_parent
+
+        if self.nodes[kd_parent].left == node_id:
+            self.nodes[kd_parent].left = None
+        elif self.nodes[kd_parent].right == node_id:
+            self.nodes[kd_parent].right = None
+
+        # readd kd nodes
+
+        self.nodes.recursive_readd_from(self.nodes[node_id].left)
+        self.nodes.recursive_readd_from(self.nodes[node_id].right)
+
+        # remove from rrt parent
+
+        ii = 0
+        while (ii < len(self.nodes[parent_id].children)):
+            if self.nodes[parent_id].children[ii] == node_id:
+                del self.nodes[parent_id].children[ii]
+            else:
+                ii += 1
+
+        # remove self from dict
+
+        del self.nodes[node_id]        
 
     def expand_tree_biased(self):
         if self.goal is None:
@@ -467,7 +529,7 @@ class RRTBase(Planner):
 
         while dist < 0:
             # collision!
-            self.nodes = self.nodes[nearest_id].remove(self.nodes)
+            self.nodes = self.remove_node(nearest_id)
 
             nearest_id = self.find_nearest_node(pose)
             dx = pose.position.x - self.nodes[nearest_id].position.x

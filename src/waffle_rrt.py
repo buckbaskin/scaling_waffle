@@ -25,7 +25,10 @@ def odom_cb(msg):
     CLASSIC_WAFFLE.last_pose = msg.pose.pose
 
 def laser_cb(msg):
+    rospy.loginfo('laser callback')
     CLASSIC_WAFFLE.new_scan(CLASSIC_WAFFLE.last_pose, msg)
+    for _ in xrange(0, 10):
+        CLASSIC_WAFFLE.expand_tree_biased()
 
 def plan_srv(srv):
     goal = srv.goal
@@ -40,6 +43,4 @@ if __name__ == '__main__':
     LASER_SUB = rospy.Subscriber('/base_scan', LaserScan, laser_cb)
 
     rospy.loginfo('waffle_rrt start')
-
-    while not rospy.is_shutdown():
-        CLASSIC_WAFFLE.expand_tree_biased()
+    rospy.spin()
