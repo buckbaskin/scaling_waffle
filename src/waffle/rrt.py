@@ -272,9 +272,10 @@ class RRT(dict):
         pass
 
     def reached_goal(self):
-        # TODO(buckbaskin):
-        # check if the nearest pose is less than one collision step
-        pass
+        nearest_id = self.find_nearest_node(self.goal)
+        # True if the nearest node is less than the collision check distance
+        # else False
+        return distance_function(self[nearest_id], self.goal) < .1
 
     def remove_node_by_id(self, pose):
         # TODO(buckbaskin):
