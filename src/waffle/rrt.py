@@ -101,6 +101,8 @@ class ObstacleMap(object):
         Combine multiple obstacles in the same place into one
         '''
         pass
+
+
 class SpecialPose(Pose):
     def __init__(self, pose):
         super(SpecialPose, self).__init__()
@@ -276,23 +278,6 @@ class NodeTree(dict):
         # return the id of the inserted node
         return self.next_id - 1
 
-class RRTNode(object):
-    def __init__(self, id_, pose, parent):
-        self.id_ = id_
-        self.pose = pose
-        self.parent = int(parent)
-        self.children = []
-
-    def add_child(self, pose):
-        self.children.append(pose)
-
-    def remove(self, old_nodes):
-        del old_nodes[self.id_]
-        for child in self.children:
-            old_nodes = self.children.remove(old_nodes)
-        return old_nodes
-
-
 class RRTBase(Planner):
     def __init__(self, minx=-100.0, maxx=100.0, miny=-100.0, maxy=100.0):
         super(RRTBase, self).__init__()
@@ -359,6 +344,15 @@ class RRTBase(Planner):
 
         self.obstacles.condense()
 
+    def add_node(pose):
+        rrt_parent = self.find_nearest_node(pose)
+        rrt_children = []
+        location = pose
+        sp = SpecialPose(location)
+        sp.parent = rrt_parent
+        sp.children = rrt_parent
+        self.nodes.add_node(sp)
+
     def expand_tree_biased(self):
         if self.goal is None:
             self.expand_tree()
@@ -380,17 +374,19 @@ class RRTBase(Planner):
                 return None
             elif dist < self.step_size:
                 if not self.obstacles.check_collision(self.goal):
-                    self.nodes[nearest_id].add_child(self.goal)
+                    self.add_node(self.goal)
                 return None
             else:
                 choose_pose.position.x = self.nodes[nearest_id].position.x + dx
                 choose_pose.position.y = self.nodes[nearest_id].position.y + dy
                 # I need to take steps towards the goal.
+                # TODO(buckbaskin): go until collision, only add the last one
+                #   before collision
                 while dist > self.step_size:
                     if self.obstacles.check_collision(choose_pose):
                         return None
                     else:
-                        self.nodes[nearest_id].add_child(choose_pose)
+                        self.add_node(choose_pose)
 
                         choose_pose.position.x += dx
                         choose_pose.position.y += dy
@@ -405,7 +401,7 @@ class RRTBase(Planner):
                     if self.obstacles.check_collision(self.goal):
                         return None
                     else:
-                        self.nodes[nearest_id].add_child(self.goal)
+                        self.add_node(self.goal)
                 return None
         else:
             self.expand_tree()
@@ -446,13 +442,14 @@ class RRTBase(Planner):
         elif dist < 2.0*self.step_size:
             # if the point is close, add the choose point as the child
             if not self.obstacles.check_collision(choose_pose):
-                self.nodes[nearest_id].add_child(choose_pose)
+                self.add_node(choose_pose)
         else:
+            # TODO(buckbaskin): take steps until collision, then add the last one
             # take a step towards the chosen
             choose_pose.position.x = self.nodes[nearest_id].position.x + dx
             choose_pose.position.y = self.nodes[nearest_id].position.y + dy
             if not self.obstacles.check_collision(choose_pose):
-                self.nodes[nearest_id].add_child(choose_pose)
+                self.add_node(choose_pose)
 
     def prune_tree(self, pose, radius):
         '''
