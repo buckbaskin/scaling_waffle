@@ -1,6 +1,8 @@
 # pylint: disable=line-too-long
 # pylint: disable=invalid-name
 
+import rospy
+
 import math
 import random
 
@@ -12,6 +14,8 @@ from math import sin, cos
 from waffle.waffle_common import Planner, ROBOT_RADIUS
 from utils import quaternion_to_heading, heading_to_quaternion, addv
 
+rospy.loginfo('imported w.w_common Planner: %s' % type(Planner))
+rospy.loginfo('imported utils      addv: %s' % type(addv))
 
 class ObstacleMap(object):
     def __init__(self, minx, maxx, miny, maxy):
@@ -122,7 +126,7 @@ class RRTNode(Pose):
         self.kd_right = None # this is for the kd tree, positional children
 
 class RRT(dict):
-    def __init__(self):
+    def __init__(self, minx, maxx, miny, maxy):
         super(RRT, self).__init__()
 
         self.obstacles = ObstacleMap(-5, 45, -5, 45)
@@ -132,6 +136,11 @@ class RRT(dict):
         self[0] = RRTNode(Pose())
 
         self.next_id = 1
+
+        self.minx = minx
+        self.miny = miny
+        self.maxx = maxx
+        self.maxy = maxy
 
     def add_node_kd(self, rrt_node_id, depth=0, compare_id=0):
         '''
@@ -149,12 +158,12 @@ class RRT(dict):
 
         if getattr(self[compare_id], side) is None:
             # if there is no child for the given node on this side
-            setattr(self[compare_id], side, rrt_node_id):
+            setattr(self[compare_id], side, rrt_node_id)
             self[rrt_node_id].kd_parent = compare_id
             return
         else:
             # if there is a child on this side, recursively call...
-            self.add_node_kd(rrt_node_id, depth+1, get(self[compare_id], side))
+            self.add_node_kd(rrt_node_id, depth+1, getattr(self[compare_id], side))
 
     def add_node_rrt(self, pose):
         # find its closest neighbor by id
@@ -194,10 +203,8 @@ class RRT(dict):
                 expand_to_pose.position.x = x
                 expand_to_pose.position.y = y
 
-        expand_to_pose = RRTNode()
-
         # try to expand up to that node, storing the expand_from node
-        expand_from_id = self.find_nearest_node(node)
+        expand_from_id = self.find_nearest_node(expand_to_pose)
         expand_from_pose = self[expand_from_id]
 
         collision_step = 0.1
@@ -278,7 +285,7 @@ class RRT(dict):
         if getattr(self[root_index], side) is None:
             return (root_index, self.distance_function(self[root_index], pose), depth,)
         else:
-            return find_nearest_node_down(pose, depth+1, getattr(self[root_index], side))
+            return self.find_nearest_node_down(pose, depth+1, getattr(self[root_index], side))
 
     def find_nearest_node_up(self, pose, next_id, depth, best_id, best_distance):
         if depth < 0 or next_id is None: # gone too far
@@ -308,7 +315,7 @@ class RRT(dict):
             else:
                 side = 'kd_right'
 
-            other_id, other_distance, _depth = find_nearest_node_down(pose, parent_depth+1, getattr(self[parent_id], side))
+            other_id, other_distance, _depth = self.find_nearest_node_down(pose, parent_depth+1, getattr(self[parent_id], side))
             if other_distance < best_distance:
                 best_id = other_id
                 best_distance = other_distance
@@ -321,7 +328,10 @@ class RRT(dict):
         nearest_id = self.find_nearest_node(self.goal)
         # True if the nearest node is less than the collision check distance
         # else False
-        return distance_function(self[nearest_id], self.goal) < .1
+        if self.distance_function(self[nearest_id], self.goal) < .1:
+            rospy.loginfo('found a path to a goal!')
+            return True
+        return False
 
     def remove_node_by_id(self, destroy_id):
         # TODO(buckbaskin):
