@@ -323,6 +323,13 @@ class RRT(dict):
         # now I for sure have the best node 
         return self.find_nearest_node_up(pose, self[next_id].kd_parent, depth-1, best_id, best_distance)
 
+    def generate_plan(self):
+        # TODO(buckbaskin):
+        return []
+
+    def new_scan(self, from_pose, scan):
+        # TODO(buckbaskin):
+        pass
 
     def reached_goal(self):
         nearest_id = self.find_nearest_node(self.goal)

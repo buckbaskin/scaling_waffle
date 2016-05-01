@@ -11,11 +11,11 @@ from geometry_msgs.msg import Pose
 from nav_msgs.msg import Odometry
 from scaling_waffle.srv import Plan, PlanResponse
 from sensor_msgs.msg import LaserScan
-from waffle.rrt import RRTBase
+from waffle.rrt import RRT
 
 # from waffle import rrt # this is not valid by design right now
 
-CLASSIC_WAFFLE = RRTBase()
+CLASSIC_WAFFLE = RRT()
 CLASSIC_WAFFLE.last_pose = Pose()
 
 def goal_cb(msg):
@@ -27,13 +27,11 @@ def odom_cb(msg):
 def laser_cb(msg):
     rospy.loginfo('laser callback')
     CLASSIC_WAFFLE.new_scan(CLASSIC_WAFFLE.last_pose, msg)
-    for _ in xrange(0, 10):
-        CLASSIC_WAFFLE.expand_tree_biased()
 
 def plan_srv(srv):
     goal = srv.goal
     start = srv.start
-    return PlanResponse(CLASSIC_WAFFLE.generate_plan(start, goal))
+    return PlanResponse(CLASSIC_WAFFLE.generate_plan())
 
 if __name__ == '__main__':
     rospy.init_node('waffle_rrt')
@@ -43,4 +41,6 @@ if __name__ == '__main__':
     LASER_SUB = rospy.Subscriber('/base_scan', LaserScan, laser_cb)
 
     rospy.loginfo('waffle_rrt start')
-    rospy.spin()
+    while not rospy.is_shutdown():
+        if not CLASSIC_WAFFLE.reached_goal():
+            CLASSIC_WAFFLE.expand_tree()
