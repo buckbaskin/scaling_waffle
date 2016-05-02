@@ -9,10 +9,12 @@ import random
 from collections import deque
 from copy import deepcopy
 from geometry_msgs.msg import Pose
-from math import sin, cos
+from heapq import heappush, heappop
+from math import cos
 # from sensor_msgs.msg import LaserScan
+from scaling_waffle.srv import PlanResponse
 from waffle.waffle_common import Planner, ROBOT_RADIUS
-from utils import quaternion_to_heading, heading_to_quaternion, addv
+from utils import quaternion_to_heading, addv
 
 rospy.loginfo('imported w.w_common Planner: %s' % type(Planner))
 rospy.loginfo('imported utils      addv: %s' % type(addv))
@@ -315,7 +317,7 @@ class RRT(dict):
             else:
                 side = 'kd_right'
 
-            other_id, other_distance, _depth = self.find_nearest_node_down(pose, parent_depth+1, getattr(self[parent_id], side))
+            other_id, other_distance, dummy_depth = self.find_nearest_node_down(pose, parent_depth+1, getattr(self[parent_id], side))
             if other_distance < best_distance:
                 best_id = other_id
                 best_distance = other_distance
@@ -327,20 +329,20 @@ class RRT(dict):
         end_id = 0
         if self.reached_goal():
             nodeheap = []
-            heappush(nodeheap, (distance_function(self[0], self.goal), 0))
+            heappush(nodeheap, (self.distance_function(self[0], self.goal), 0))
             
             while(len(nodeheap) > 0):
                 heuristic, next_node_id = heappop(nodeheap)
                 # I know this condition will be true because self.reached_goal()
-                if distance_function(self[next_node_id], self.goal) < 0.1:
+                if self.distance_function(self[next_node_id], self.goal) < 0.1:
                     end_id = next_node_id
                     break
                 else:
-                    next_node_distance = heuristic - distance_function(self[next_node_id], self.goal)
+                    next_node_distance = heuristic - self.distance_function(self[next_node_id], self.goal)
                     
                     for child_id in self[next_node_id].rrt_children:
-                        child_distance = next_node_distance + distance_function(self[child_id], self[next_node_id])
-                        child_heuristic = distance_function(self[child_id], self.goal) + child_distance
+                        child_distance = next_node_distance + self.distance_function(self[child_id], self[next_node_id])
+                        child_heuristic = self.distance_function(self[child_id], self.goal) + child_distance
                         heappush(nodeheap, (child_heuristic, child_id))
 
         else:
@@ -362,15 +364,15 @@ class RRT(dict):
 
     def new_scan(self, from_pose, scan):
         # add in all the new obstacles
-        angle = scan.angle_min+quaternion_to_heading(pose.orientation)
+        angle = scan.angle_min+quaternion_to_heading(from_pose.orientation)
         for reading in scan.ranges:
 
             # add a new obstacle
 
             if reading > scan.range_max - .01:
                 continue
-            x = pose.position.x + reading*cos(angle)
-            y = pose.position.x + reading*cos(angle)
+            x = from_pose.position.x + reading*cos(angle)
+            y = from_pose.position.x + reading*cos(angle)
             radius = reading*scan.angle_increment
 
             new_pose = Pose()
@@ -397,7 +399,7 @@ class RRT(dict):
         # remove any nodes in collision with a new obstacle
         nearest_id = self.find_nearest_node(new_pose)
 
-        while distance_function(self[nearest_id], new_pose) < radius:
+        while self.distance_function(self[nearest_id], new_pose) < radius:
             self.remove_node_by_id(nearest_id)
             nearest_id = self.find_nearest_node(new_pose)
 
