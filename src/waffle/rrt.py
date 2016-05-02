@@ -35,7 +35,7 @@ class ObstacleMap(object):
             math.pow(pose1.position.y-pose2.position.y, 2) +
             math.pow(pose1.position.z-pose2.position.z, 2))
 
-    def add_obstacle(self, pose, radius):
+    def add_obstacle(self, pose, radius, readding=False):
         if pose.position.x > self.maxx:
             return None
         if pose.position.y > self.maxy:
@@ -44,10 +44,10 @@ class ObstacleMap(object):
             return None
         if pose.position.y < self.miny:
             return None
-        if self.children is None:
+        if self.children is None and not readding:
             # then there are no sub-maps
             self.obstacle_list.append((pose, radius,))
-            if len(self.obstacle_list) > 20:
+            if len(self.obstacle_list) > 300:
                 self.sub_divide()
         else:
             for vertical in ['top', 'middle', 'bottom']:
@@ -55,6 +55,7 @@ class ObstacleMap(object):
                     self.children[vertical][horizontal].add_obstacle(pose, radius)
 
     def sub_divide(self):
+        rospy.loginfo('sub_divide called, creating children + minx %f + maxx %f' % (self.minx, self.maxx,))
         self.children = {'top':{'left':ObstacleMap(self.minx, self.midx,
                                     self.midy, self.maxy),
                                 'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
@@ -75,7 +76,7 @@ class ObstacleMap(object):
                                     self.miny, self.midy)}}
         for obstacle in self.obstacle_list:
             # this will add it to self.children
-            self.add_obstacle(obstacle[0], obstacle[1])
+            self.add_obstacle(obstacle[0], obstacle[1], readding=True)
         self.obstacle_list = None
 
 
@@ -287,7 +288,12 @@ class RRT(dict):
         if getattr(self[root_index], side) is None:
             return (root_index, self.distance_function(self[root_index], pose), depth,)
         else:
-            return self.find_nearest_node_down(pose, depth+1, getattr(self[root_index], side))
+            try:
+                return self.find_nearest_node_down(pose, depth+1, getattr(self[root_index], side))
+            except RuntimeError as rte:
+                rospy.loginfo('probable max depth: %d' % depth)
+                rospy.logerror(rte)
+
 
     def find_nearest_node_up(self, pose, next_id, depth, best_id, best_distance):
         if depth < 0 or next_id is None: # gone too far
@@ -435,6 +441,8 @@ class RRT(dict):
         return False
 
     def remove_node_by_id(self, destroy_id):
+        if destroy_id <= 0:
+            return
         # remove child id from rrt parent
         self.remove_child_rrt(self[destroy_id].rrt_parent, destroy_id)
         
@@ -457,10 +465,10 @@ class RRT(dict):
 
     def readd_children_kd(self, node_id):
         # add this node and all children to the kd tree again
-        if self[node_id].left is not None:
-            self.readd_children_kd(self[node_id].left)
-        if self[node_id].right is not None:
-            self.readd_children_kd(self[node_id].right)
+        if self[node_id].kd_left is not None:
+            self.readd_children_kd(self[node_id].kd_left)
+        if self[node_id].kd_right is not None:
+            self.readd_children_kd(self[node_id].kd_right)
 
         self.add_node_kd(node_id)
 
@@ -475,10 +483,10 @@ class RRT(dict):
 
     def remove_child_kd(self, parent_id, child_id):
         # remove the given child from the given parent
-        if self[parent_id].left == child_id:
-            self[parent_id].left = None
-        if self[parent_id].right == child_id:
-            self[parent_id].right = None
+        if self[parent_id].kd_left == child_id:
+            self[parent_id].kd_left = None
+        if self[parent_id].kd_right == child_id:
+            self[parent_id].kd_right = None
 
     def set_goal(self, pose):
         self.goal = pose
