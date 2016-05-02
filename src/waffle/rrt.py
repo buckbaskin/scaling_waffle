@@ -10,7 +10,7 @@ from collections import deque
 from copy import deepcopy
 from geometry_msgs.msg import Pose
 from heapq import heappush, heappop
-from math import cos
+from math import cos, sin
 # from sensor_msgs.msg import LaserScan
 from scaling_waffle.srv import PlanResponse
 from waffle.waffle_common import Planner, ROBOT_RADIUS
@@ -128,6 +128,7 @@ class RRTNode(Pose):
         self.kd_left = None # this is for the kd tree, positional children
         self.kd_right = None # this is for the kd tree, positional children
 
+
 class RRT(dict):
     def __init__(self, minx, maxx, miny, maxy):
         super(RRT, self).__init__()
@@ -144,6 +145,9 @@ class RRT(dict):
         self.miny = miny
         self.maxx = maxx
         self.maxy = maxy
+
+        self.kd_max_depth = 0
+        self.rrt_max_depth = 0
 
     def add_node_kd(self, rrt_node_id, depth=0, compare_id=0):
         '''
@@ -286,13 +290,16 @@ class RRT(dict):
             side = 'kd_right'
 
         if getattr(self[root_index], side) is None:
+            if depth > self.kd_max_depth:
+                self.kd_max_depth = depth
+                # rospy.loginfo('kd_max_depth %d' % (self.kd_max_depth,))
             return (root_index, self.distance_function(self[root_index], pose), depth,)
         else:
             try:
                 return self.find_nearest_node_down(pose, depth+1, getattr(self[root_index], side))
             except RuntimeError as rte:
-                rospy.loginfo('probable max depth: %d' % depth)
-                rospy.logerror(rte)
+                rospy.loginfo('probable max depth: %d \n%s' % (depth, rte,))
+                raise rte
 
 
     def find_nearest_node_up(self, pose, next_id, depth, best_id, best_distance):
@@ -370,30 +377,48 @@ class RRT(dict):
 
     def new_scan(self, from_pose, scan):
         # add in all the new obstacles
+        rospy.loginfo('new scan')
         angle = scan.angle_min+quaternion_to_heading(from_pose.orientation)
-        for reading in scan.ranges:
 
+        rospy.loginfo('begin rotating through scan.ranges %d' % len(scan.ranges))
+        rospy.loginfo('pose x: %f y: %f' % (from_pose.position.x, from_pose.position.y,))
+        count = 0
+        for reading in scan.ranges:
+            count += 1
+            if count % 10 == 0 or count > 90:
+                rospy.loginfo('scan range %d %f' % (count, reading,))
             # add a new obstacle
 
             if reading > scan.range_max - .01:
+                rospy.loginfo('scan max!')
+                continue
+            if reading < scan.range_min + .01:
+                rospy.loginfo('scan min!')
                 continue
             x = from_pose.position.x + reading*cos(angle)
-            y = from_pose.position.x + reading*cos(angle)
+            y = from_pose.position.x + reading*sin(angle)
             radius = reading*scan.angle_increment
 
             new_pose = Pose()
             new_pose.position.x = x
             new_pose.position.y = y
 
+            rospy.loginfo('new obstacle: x: %f y: %f' % (x, y,))
+
             self.obstacles.add_obstacle(deepcopy(new_pose), radius)
 
+            rospy.loginfo('end adding obstacle')
+
             # check if I need to prune
-            self.prune_local(new_pose, radius)
+            self.prune_local(new_pose, radius, count >= 90)
+
+            rospy.loginfo('start prune local')
 
             angle += scan.angle_increment
 
         # check all of the points, especially nodes that might have edges
         #   passing by new obstacles
+        rospy.loginfo('prune recursive')
         self.prune_recursive()
 
         # remove previously seen obstacles that are too close to existing
@@ -401,9 +426,12 @@ class RRT(dict):
 
         self.obstacles.condense()
 
-    def prune_local(self, new_pose, radius):
+    def prune_local(self, new_pose, radius, debug=False):
         # remove any nodes in collision with a new obstacle
         nearest_id = self.find_nearest_node(new_pose)
+
+        if debug:
+            rospy.loginfo('found nearest id %d' % (nearest_id,))
 
         while self.distance_function(self[nearest_id], new_pose) < radius:
             self.remove_node_by_id(nearest_id)

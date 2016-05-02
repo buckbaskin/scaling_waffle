@@ -27,6 +27,7 @@ def odom_cb(msg):
 def laser_cb(msg):
     rospy.loginfo('laser callback')
     CLASSIC_WAFFLE.new_scan(CLASSIC_WAFFLE.last_pose, msg)
+    rospy.loginfo('end laser callback')
 
 def plan_srv(dummy_srv):
     return PlanResponse(CLASSIC_WAFFLE.generate_plan())
