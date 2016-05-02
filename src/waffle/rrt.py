@@ -361,7 +361,6 @@ class RRT(dict):
         return pr
 
     def new_scan(self, from_pose, scan):
-        # TODO(buckbaskin):
         # add in all the new obstacles
         angle = scan.angle_min+quaternion_to_heading(pose.orientation)
         for reading in scan.ranges:
@@ -383,9 +382,10 @@ class RRT(dict):
             # check if I need to prune
             self.prune_local(new_pose, radius)
 
-
             angle += scan.angle_increment
 
+        # check all of the points, especially nodes that might have edges
+        #   passing by new obstacles
         self.prune_recursive()
 
         # remove previously seen obstacles that are too close to existing
