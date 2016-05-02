@@ -84,14 +84,14 @@ class NaivePotential(Potential):
         self.obstacles = []
 
         min_ = scan.angle_min
-        max_ = scan.angle_max
+        # max_ = scan.angle_max
         angle_inc = scan.angle_increment
 
         angle = min_
-        index = 0
+        # index = 0
 
-        trailing_min = scan.range_max
-        trailing_min_index = -1
+        # trailing_min = scan.range_max
+        # trailing_min_index = -1
 
         for range_ in scan.ranges:
             if range_ < scan.range_max - .01:
@@ -100,7 +100,7 @@ class NaivePotential(Potential):
                 # range is out to max, no obstacle
                 pass
             angle += angle_inc
-            index += 1
+            # index += 1
 
         self.transform_obstacles(pose)
 
@@ -114,7 +114,7 @@ class NaivePotential(Potential):
             y = pose.position.y + old_obstacle[0]*sin(old_obstacle[1]+heading)
             self.obstacles[i] = (x,y,)
 
-    def calc_potential(self, pose, debug=None):
+    def calc_potential(self, pose):
         accum = (0,0,0,)
         for obstacle in self.obstacles:
             if (not len(accum) == 3):
@@ -140,7 +140,7 @@ class NaivePotential(Potential):
 
     def force_vector(self, pose, obstacle):
 
-        scale_parameter = 1.0
+        scale_parameter = 0.04
 
         p_x = pose.position.x
         p_y = pose.position.y
@@ -155,7 +155,7 @@ class NaivePotential(Potential):
         if distance_from_obstacle <= 0.001:
             return (1000000*(p_y-o_y)/abs(p_y-o_y), 1000000*(p_x-o_x)/abs(p_x-o_x), 0.0)
         else:
-            new_magnitude = 0.04/(distance_from_obstacle)
+            new_magnitude = scale_parameter/(distance_from_obstacle)
             dx = new_magnitude*cos(angle)
             dy = new_magnitude*sin(angle)
 
@@ -189,7 +189,9 @@ class NaivePotential(Potential):
             accum += vector[i]*vector[i]
         return math.sqrt(accum)
 
-    def generate_plan(self, start, goal, debug=None):
+    def generate_plan(self, start, goal):
+        # debug = None
+        debug = rospy.loginfo
         if debug is not None:
             debug('potential generate plane\n'+str(goal))
         deck = deque()
@@ -212,7 +214,7 @@ class NaivePotential(Potential):
 
         while(distance > .01 and count >= 0):
             debug('start calculating obs_force')
-            obs_force = self.calc_potential(next_, debug)
+            obs_force = self.calc_potential(next_)
             debug('end calculating obs_force')
             goal_force = self.goal_force(next_, goal)
             
@@ -243,20 +245,6 @@ class NaivePotential(Potential):
             deck.append(goal)
 
         return list(deck)
-
-
-class SavingPotential(Potential):
-    '''
-    An implementation of the Potential class/algorithm that keeps track of all
-    of the points that it has seen a laser return from.
-
-    This will likely fail with dynamic obstacles, because it will still see old
-    obstacles even if a laser scan has shown the obstacle to have moved. With
-    static obstacles, this should outperform the NaivePotential.
-    '''
-    #TODO(buckbaskin): implement this
-    def __init__(self):
-        super(SavingPotential, self).__init__()
 
 
 class ImprovedPotential(Potential):
