@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+#pylint: disable=global-statement
+
 '''
 Create a ROS node that uses potential fields to do automated planning
 '''
@@ -7,13 +9,13 @@ Create a ROS node that uses potential fields to do automated planning
 import rospy
 
 import math
+import sys
 
 from geometry_msgs.msg import Pose, Twist
 from nav_msgs.msg import Odometry
-from scaling_waffle.srv import PotentialField, PotentialFieldResponse
-from scaling_waffle.srv import Plan, PlanResponse
-from sensor_msgs.msg import LaserScan
-from utils import quaternion_to_heading, heading_to_quaternion
+# from scaling_waffle.srv import PotentialField, PotentialFieldResponse
+from scaling_waffle.srv import Plan
+from utils import quaternion_to_heading
 
 DRIVER = None
 
@@ -66,14 +68,14 @@ def odom_cb(odom):
                 if (len(goals) == 0):
                     rospy.loginfo('Driver: arrived at goal')
                     DRIVER.publish(Twist())
-                    import sys
+                    
                     sys.exit(0)
         return
     elif distance(odom.pose.pose, goals[0]) < .02:
         # if I'm on the goal, remove the current goal, set the speed to 0
-        to_print = goals.pop(0)
+        goals.pop(0)
         count += 1
-        # rospy.loginfo('@ '+str(to_print))
+        
         if DRIVER is not None:
             # rospy.loginfo('Driver: next goal')
             DRIVER.publish(Twist())
@@ -163,7 +165,7 @@ if __name__ == '__main__':
     rospy.loginfo('I got a %d step plan' % (len(goals)))
     if (len(goals) == 0):
         rospy.loginfo('already at goal')
-        import sys
+        
         sys.exit(0)
     waiting_for_plan = False
     
@@ -178,6 +180,6 @@ if __name__ == '__main__':
         GOALER.publish(odo)
         rate_limit.sleep()
         if crash_flag:
-            import sys
+            
             sys.exit(0)
     rospy.loginfo('Driver: shutdown')
