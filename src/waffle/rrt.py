@@ -421,7 +421,6 @@ class RRT(dict):
                     # else call prune_recursive
                     self.prune_recursive(child_id)
 
-
     def reached_goal(self):
         nearest_id = self.find_nearest_node(self.goal)
         # True if the nearest node is less than the collision check distance
@@ -432,18 +431,23 @@ class RRT(dict):
         return False
 
     def remove_node_by_id(self, destroy_id):
-        # TODO(buckbaskin):
         # remove child id from rrt parent
         self.remove_child_rrt(self[destroy_id].rrt_parent, destroy_id)
+        
         # remove children recursively
         for child_id in self[destroy_id].rrt_children:
             self.remove_node_by_id(child_id)
+        
         # once I have no children/am a rrt leaf node
         #   remove myself from my kd parent
         self.remove_child_kd(self[destroy_id].kd_parent, destroy_id)
+        
         #   add all remaining kd-children back to the kd tree
-        self.readd_children_kd(self[destroy_id].kd_left)
-        self.readd_children_kd(self[destroy_id].kd_right)
+        if self[destroy_id].kd_left is not None:
+            self.readd_children_kd(self[destroy_id].kd_left)
+        if self[destroy_id].kd_right is not None:
+            self.readd_children_kd(self[destroy_id].kd_right)
+        
         # remove self from the dict of points
         del self[destroy_id]
 
