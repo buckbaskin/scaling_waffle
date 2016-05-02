@@ -408,11 +408,18 @@ class RRT(dict):
             self.remove_node_by_id(root_index)
         else:
             for child_id in self[root_index].rrt_children:
-                # TODO(buckbaskin):
-                # check the half way point to each child, remove the child
+                # check the half way point to each child
+                # this is enough (with the ROBOT_RADIUS buffer) to pass by
+                halfway_pose = Pose()
+                halfway_pose.position.x = (self[root_index].position.x + self[child_id].position.x) / 2.0
+                halfway_pose.position.y = (self[root_index].position.y + self[child_id].position.y) / 2.0
                 #   if there is a node at halfway
-                # else call prune_recursive
-                self.prune_recursive(child_id)
+                if self.obstacles.check_collision(halfway_pose):
+                    # cut it out
+                    self.remove_node_by_id(child_id)
+                else:
+                    # else call prune_recursive
+                    self.prune_recursive(child_id)
 
 
     def reached_goal(self):
