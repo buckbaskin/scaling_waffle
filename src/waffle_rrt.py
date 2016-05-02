@@ -15,7 +15,7 @@ from waffle.rrt import RRT
 
 # from waffle import rrt # this is not valid by design right now
 
-CLASSIC_WAFFLE = RRT()
+CLASSIC_WAFFLE = RRT(-10.0, 50.0, -10.0, 50.0)
 CLASSIC_WAFFLE.last_pose = Pose()
 
 def goal_cb(msg):

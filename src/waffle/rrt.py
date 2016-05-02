@@ -292,7 +292,7 @@ class RRT(dict):
     def find_nearest_node_up(self, pose, next_id, depth, best_id, best_distance):
         if depth < 0 or next_id is None: # gone too far
             return best_id
-        if depth == 0 or self[next_id].parent is None: # stop at top of tree
+        if depth == 0 or self[next_id].kd_parent is None: # stop at top of tree
             return best_id
 
         parent_id = self[next_id].kd_parent
@@ -424,6 +424,8 @@ class RRT(dict):
                     self.prune_recursive(child_id)
 
     def reached_goal(self):
+        if self.goal is None:
+            return False
         nearest_id = self.find_nearest_node(self.goal)
         # True if the nearest node is less than the collision check distance
         # else False
