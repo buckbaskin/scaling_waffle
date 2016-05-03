@@ -55,7 +55,9 @@ def odom_cb(odom):
         if DRIVER is not None:
             if distance(end, odom.pose.pose) > .01:
                 rospy.loginfo('Driver: get a new set of goals')
-                
+                if rrt:
+                    DRIVER.publish(Twist())
+                    reset_root(positions[0], end)
                 goals = get_plan(odom.pose.pose, end).allpoints
                 if (len(goals) == 0):
                     rospy.loginfo('Driver: arrived at goal')

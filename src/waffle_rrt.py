@@ -31,12 +31,20 @@ def laser_cb(msg):
     CLASSIC_WAFFLE.new_scan(CLASSIC_WAFFLE.last_pose, msg)
     # rospy.loginfo('end laser callback')
 
+def reset_root(srv):
+    new_root = srv.start
+    CLASSIC_WAFFLE = RRT(CLASSIC_WAFFLE.minx, CLASSIC_WAFFLE.maxx, 
+                            CLASSIC_WAFFLE.miny, CLASSIC_WAFFLE.maxy,
+                            pose=new_root, obstacles=CLASSIC_WAFFLE.obstacles)
+    CLASSIC_WAFFLE.set_goal(srv.goal)
+
 def plan_srv(dummy_srv):
     return PlanResponse(CLASSIC_WAFFLE.generate_plan())
 
 if __name__ == '__main__':
     rospy.init_node('waffle_rrt')
     RRT_SRV = rospy.Service('/rrt/plan', Plan, plan_srv)
+    RRT_SRV = rospy.Service('/rrt/reset', Plan, reset_root)
     GOAL_SUB = rospy.Subscriber('/rrt/goal', Odometry, goal_cb)
     ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
     LASER_SUB = rospy.Subscriber('/base_scan', LaserScan, laser_cb)

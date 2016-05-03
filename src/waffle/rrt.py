@@ -146,14 +146,16 @@ class RRTNode(Pose):
 
 
 class RRT(dict):
-    def __init__(self, minx, maxx, miny, maxy):
+    def __init__(self, minx, maxx, miny, maxy, pose=None, obstacles=None):
         super(RRT, self).__init__()
 
-        self.obstacles = ObstacleMap(-5.0, 35.0, -5.0, 35.0)
         self.goal = None
 
-        # start self at odometry 0
-        self[0] = RRTNode(Pose())
+        if pose is None:
+            # start self at odometry 0
+            self[0] = RRTNode(Pose())
+        else:
+            self[0] = RRTNode(pose)
 
         self.next_id = 1
 
@@ -161,6 +163,11 @@ class RRT(dict):
         self.miny = miny
         self.maxx = maxx
         self.maxy = maxy
+
+        if obstacles is None:
+            self.obstacles = ObstacleMap(-5.0, 35.0, -5.0, 35.0)
+        else:
+            self.obstacles = obstacles
 
         self.kd_max_depth = 0
         self.rrt_max_depth = 0
