@@ -434,23 +434,25 @@ class RRT(dict):
     def generate_plan(self):
         end_id = 0
         if self.reached_goal():
-            rospy.loginfo('gen plan: reached goal, doing A*')
-            nodeheap = []
-            heappush(nodeheap, (self.distance_function(self[0], self.goal), 0))
+            rospy.loginfo('if I reached the goal, lets go backwards!')
+            end_id = self.find_nearest_node(self.goal)
+            # rospy.loginfo('gen plan: reached goal, doing A*')
+            # nodeheap = []
+            # heappush(nodeheap, (self.distance_function(self[0], self.goal), 0))
             
-            while(len(nodeheap) > 0):
-                heuristic, next_node_id = heappop(nodeheap)
-                # I know this condition will be true because self.reached_goal()
-                if self.distance_function(self[next_node_id], self.goal) < 0.1:
-                    end_id = next_node_id
-                    break
-                else:
-                    next_node_distance = heuristic - self.distance_function(self[next_node_id], self.goal)
+            # while(len(nodeheap) > 0):
+            #     heuristic, next_node_id = heappop(nodeheap)
+            #     # I know this condition will be true because self.reached_goal()
+            #     if self.distance_function(self[next_node_id], self.goal) < 0.1:
+            #         end_id = next_node_id
+            #         break
+            #     else:
+            #         next_node_distance = heuristic - self.distance_function(self[next_node_id], self.goal)
                     
-                    for child_id in self[next_node_id].rrt_children:
-                        child_distance = next_node_distance + self.distance_function(self[child_id], self[next_node_id])
-                        child_heuristic = self.distance_function(self[child_id], self.goal) + child_distance
-                        heappush(nodeheap, (child_heuristic, child_id))
+            #         for child_id in self[next_node_id].rrt_children:
+            #             child_distance = next_node_distance + self.distance_function(self[child_id], self[next_node_id])
+            #             child_heuristic = self.distance_function(self[child_id], self.goal) + child_distance
+            #             heappush(nodeheap, (child_heuristic, child_id))
 
         else:
             if self.goal is None:
@@ -470,8 +472,8 @@ class RRT(dict):
             deck.appendleft(self[end_id])
 
         final_list = list(deck)
-        if len(final_list) > 10:
-            final_list = final_list[0:10]
+        # if len(final_list) > 10:
+        #     final_list = final_list[0:10]
 
         rospy.loginfo('legit response or something... %d' % end_id)
         pr = PlanResponse()
