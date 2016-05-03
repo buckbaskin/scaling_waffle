@@ -599,12 +599,16 @@ class RRT(dict):
 
     def readd_children_kd(self, node_id):
         # add this node and all children to the kd tree again
-        if self[node_id].kd_left is not None:
-            self.readd_children_kd(self[node_id].kd_left)
-        if self[node_id].kd_right is not None:
-            self.readd_children_kd(self[node_id].kd_right)
+        readd_queue = deque()
+        readd_queue.appendleft(node_id)
 
-        self.add_node_kd_it(node_id)
+        while len(readd_queue) > 0:
+            node_id = readd_queue.pop()
+            if self[node_id].kd_left is not None:
+                readd_queue.appendleft(self[node_id].kd_left)
+            if self[node_id].kd_right is not None:
+                readd_queue.appendleft(self[node_id].kd_right)
+            self.add_node_kd_it(node_id)
 
     def remove_child_rrt(self, parent_id, child_id):
         # remove the given child from the given parent
