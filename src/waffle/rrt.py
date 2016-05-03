@@ -31,8 +31,8 @@ class MapSquare(object):
     def add_obstacle(self, pose, radius):
         # maintain a list of the 100 nearest obstacles
         self.deck.appendleft((pose, radius,))
-        while len(deck) > 100:
-            deck.pop()
+        while len(self.deck) > 100:
+            self.deck.pop()
 
     def check_collision(self, other_pose):
         for pose, radius in self.deck:
@@ -56,8 +56,8 @@ class ObstacleMap(object):
         y_dist = self.maxy - self.miny
 
         self.map = [[None]*int(y_dist/self.step_size)]*int(x_dist/self.step_size)
-        for xx in xrange(0, len(map)):
-            for yy in xrange(0, len(map[xx])):
+        for xx in xrange(0, len(self.map)):
+            for yy in xrange(0, len(self.map[xx])):
                 map[xx][yy] = MapSquare()
 
     def distance_function(self, pose1, pose2):
@@ -306,7 +306,7 @@ class RRT(dict):
         return self.find_nearest_node_up(pose, best_id, depth, best_id, best_distance)
 
     def find_nearest_node_down_it(self, pose, depth=0, root_index=0):
-        current_node = self[root_index]
+        # current_node = self[root_index]
 
         while depth < 10000:
             if (depth % 2) == 0:
@@ -474,11 +474,6 @@ class RRT(dict):
         #   passing by new obstacles
         # rospy.loginfo('prune recursive')
         self.prune_recursive()
-
-        # remove previously seen obstacles that are too close to existing
-        #   obstacles
-
-        self.obstacles.condense()
 
     def prune_local(self, new_pose, radius, debug=False):
         # remove any nodes in collision with a new obstacle
