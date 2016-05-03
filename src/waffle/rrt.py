@@ -65,7 +65,7 @@ class ObstacleMap(object):
             math.pow(pose1.position.y-pose2.position.y, 2) +
             math.pow(pose1.position.z-pose2.position.z, 2))
 
-    def add_obstacle(self, pose, radius, readding=False):
+    def add_obstacle(self, pose, radius):
         if pose.position.x > self.maxx:
             return None
         if pose.position.y > self.maxy:
@@ -75,7 +75,13 @@ class ObstacleMap(object):
         if pose.position.y < self.miny:
             return None
 
-        # TODO(buckbaskin): start here
+        x_dist = pose.position.x - self.minx
+        y_dist = pose.position.y - self.miny
+
+        x_bucket = int(x_dist / self.step_size)
+        y_bucket = int(y_dist / self.step_size)
+
+        self.map[x_bucket][y_bucket].add_obstacle(pose, radius)
 
     def check_collision(self, pose):
         if pose.position.x > self.maxx:
@@ -87,19 +93,27 @@ class ObstacleMap(object):
         if pose.position.y < self.miny:
             return False
 
-        if self.children is None:
-            for obstacle in self.obstacle_list:
-                obstacle_pose = obstacle[0]
-                obstacle_radius = obstacle[1]
-                if self.distance_function(pose, obstacle_pose) < obstacle_radius + ROBOT_RADIUS:
-                    return True
-        else:
-            for vertical in ['top', 'middle', 'bottom']:
-                for horizontal in ['left', 'center', 'right']:
-                    if self.children[vertical][horizontal].check_collision(pose):
-                        return True
-        return False                
+        x_dist = pose.position.x - self.minx
+        y_dist = pose.position.y - self.miny
 
+        x_bucket = int(x_dist / self.step_size)
+        y_bucket = int(y_dist / self.step_size)
+
+        # check +- 3 buckets around the pose
+
+        for xx in xrange(x_bucket-3, x_bucket+3+1):
+            if xx < 0:
+                continue
+            if xx >= len(self.map):
+                break
+            for yy in xrange(y_bucket-3, y_bucket+3+1):
+                if yy < 0:
+                    continue
+                if xx >= len(self.map[xx]):
+                    break
+                if self.map[xx][yy].check_collision(pose):
+                    return True
+        return False
 
 class RRTNode(Pose):
     def __init__(self, pose):
