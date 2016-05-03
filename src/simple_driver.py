@@ -11,13 +11,14 @@ import rospy
 import math
 import sys
 
-from geometry_msgs.msg import Pose, Twist
+from geometry_msgs.msg import Pose, PoseStamped, Twist
 from nav_msgs.msg import Odometry
 # from scaling_waffle.srv import PotentialField, PotentialFieldResponse
 from scaling_waffle.srv import Plan
 from utils import quaternion_to_heading
 
 DRIVER = None
+PATHVIZ = None
 
 positions = [None]
 goals = []
@@ -32,6 +33,7 @@ crash_flag = False
 count = 0
 
 get_plan = None
+reset_root = None
 
 def distance(pose1, pose2):
     # rospy.loginfo(''+str(type(pose1))+' '+str(type(pose2)))
@@ -57,13 +59,20 @@ def odom_cb(odom):
                 rospy.loginfo('Driver: get a new set of goals')
                 if rrt:
                     DRIVER.publish(Twist())
-                    reset_root(positions[0], end)
+                    reset_root(positions[0].pose.pose, end)
                 goals = get_plan(odom.pose.pose, end).allpoints
                 if (len(goals) == 0):
                     rospy.loginfo('Driver: arrived at goal')
                     DRIVER.publish(Twist())
                     global crash_flag
                     crash_flag = True
+                else:
+                    for pose in goals:
+                        ps = PoseStamped()
+                        ps.pose = pose
+                        ps.header.frame_id = '/odom'
+                        if PATHVIZ is not None:
+                            PATHVIZ.publish(ps)
             else:
                 rospy.loginfo('Driver: empty goals list')
                 DRIVER.publish(Twist())
@@ -150,7 +159,9 @@ if __name__ == '__main__':
     if rrt:
         rospy.loginfo('waiting for rrt plan service')
         rospy.wait_for_service('/rrt/plan')
+        rospy.wait_for_service('/rrt/reset')
         get_plan = rospy.ServiceProxy('/rrt/plan', Plan)
+        reset_root = rospy.ServiceProxy('/rrt/reset', Plan)
         rospy.loginfo('found rrt plan service')
     else:
         rospy.loginfo('waiting for potential plan service')
@@ -174,6 +185,7 @@ if __name__ == '__main__':
     waiting_for_plan = False
     
     DRIVER = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+    PATHVIZ = rospy.Publisher('/pathviz', PoseStamped, queue_size=1)
     GOALER = rospy.Publisher('/rrt/goal', Odometry, queue_size=1)
 
     rospy.loginfo('Driver: start simple_driver')

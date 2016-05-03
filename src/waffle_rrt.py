@@ -32,11 +32,13 @@ def laser_cb(msg):
     # rospy.loginfo('end laser callback')
 
 def reset_root(srv):
+    global CLASSIC_WAFFLE
     new_root = srv.start
     CLASSIC_WAFFLE = RRT(CLASSIC_WAFFLE.minx, CLASSIC_WAFFLE.maxx, 
                             CLASSIC_WAFFLE.miny, CLASSIC_WAFFLE.maxy,
                             pose=new_root, obstacles=CLASSIC_WAFFLE.obstacles)
     CLASSIC_WAFFLE.set_goal(srv.goal)
+    return []
 
 def plan_srv(dummy_srv):
     return PlanResponse(CLASSIC_WAFFLE.generate_plan())

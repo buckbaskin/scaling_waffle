@@ -479,8 +479,8 @@ class RRT(dict):
             deck.appendleft(self[end_id])
 
         final_list = list(deck)
-        # if len(final_list) > 10:
-        #     final_list = final_list[0:10]
+        if len(final_list) > 10:
+            final_list = final_list[0:10]
 
         rospy.loginfo('legit response or something... %d' % end_id)
         pr = PlanResponse()
