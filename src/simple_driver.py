@@ -55,6 +55,7 @@ def odom_cb(odom):
         if DRIVER is not None:
             if distance(end, odom.pose.pose) > .01:
                 rospy.loginfo('Driver: get a new set of goals')
+                
                 goals = get_plan(odom.pose.pose, end).allpoints
                 if (len(goals) == 0):
                     rospy.loginfo('Driver: arrived at goal')
@@ -64,6 +65,7 @@ def odom_cb(odom):
             else:
                 rospy.loginfo('Driver: empty goals list')
                 DRIVER.publish(Twist())
+                
                 goals = get_plan(odom.pose.pose, end).allpoints
                 if (len(goals) == 0):
                     rospy.loginfo('Driver: arrived at goal')
@@ -170,7 +172,7 @@ if __name__ == '__main__':
     waiting_for_plan = False
     
     DRIVER = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
-    GOALER = rospy.Publisher('/goal_pose', Odometry, queue_size=1)
+    GOALER = rospy.Publisher('/rrt/goal', Odometry, queue_size=1)
 
     rospy.loginfo('Driver: start simple_driver')
     while(not rospy.is_shutdown()):

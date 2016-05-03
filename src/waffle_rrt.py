@@ -19,15 +19,17 @@ CLASSIC_WAFFLE = RRT(-10.0, 50.0, -10.0, 50.0)
 CLASSIC_WAFFLE.last_pose = Pose()
 
 def goal_cb(msg):
-    CLASSIC_WAFFLE.set_goal(msg)
+    # rospy.loginfo('goal cb')
+    CLASSIC_WAFFLE.set_goal(msg.pose.pose)
 
 def odom_cb(msg):
     CLASSIC_WAFFLE.last_pose = msg.pose.pose
 
 def laser_cb(msg):
-    rospy.loginfo('laser callback')
+    # rospy.loginfo('laser callback')
+    # rospy.loginfo('fg: %r %r' % (CLASSIC_WAFFLE.goal is None, CLASSIC_WAFFLE.reached_goal()))
     CLASSIC_WAFFLE.new_scan(CLASSIC_WAFFLE.last_pose, msg)
-    rospy.loginfo('end laser callback')
+    # rospy.loginfo('end laser callback')
 
 def plan_srv(dummy_srv):
     return PlanResponse(CLASSIC_WAFFLE.generate_plan())
@@ -35,7 +37,7 @@ def plan_srv(dummy_srv):
 if __name__ == '__main__':
     rospy.init_node('waffle_rrt')
     RRT_SRV = rospy.Service('/rrt/plan', Plan, plan_srv)
-    GOAL_SUB = rospy.Subscriber('/rrt/goal', Pose, goal_cb)
+    GOAL_SUB = rospy.Subscriber('/rrt/goal', Odometry, goal_cb)
     ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
     LASER_SUB = rospy.Subscriber('/base_scan', LaserScan, laser_cb)
 

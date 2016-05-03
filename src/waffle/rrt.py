@@ -214,6 +214,7 @@ class RRT(dict):
         # find its closest neighbor by id
         # set that to be its parent
         self[self.next_id] = RRTNode(pose)
+        # rospy.loginfo('add_node_rrt fnn: %s' % pose)
         self[self.next_id].rrt_parent = self.find_nearest_node(pose)
         self[self.next_id].rrt_children = []
         self.add_node_kd_it(self.next_id)
@@ -249,6 +250,7 @@ class RRT(dict):
                 expand_to_pose.position.y = y
 
         # try to expand up to that node, storing the expand_from node
+        # rospy.loginfo('expand_tree fnn: %s' % expand_to_pose)
         expand_from_id = self.find_nearest_node(expand_to_pose)
         expand_from_pose = self[expand_from_id]
 
@@ -318,7 +320,6 @@ class RRT(dict):
 
     def find_nearest_node_down_it(self, pose, depth=0, root_index=0):
         # current_node = self[root_index]
-
         while depth < 10000:
             if (depth % 2) == 0:
                 feature = 'x'
@@ -423,6 +424,14 @@ class RRT(dict):
                         heappush(nodeheap, (child_heuristic, child_id))
 
         else:
+            if self.goal is None:
+                rospy.loginfo('no goal yet :(')
+                pr = PlanResponse()
+                pr.allpoints = [Pose()]
+                for val1 in pr.allpoints:
+                    _x = val1.position
+                    print('_x: %s' % _x)
+                return pr.allpoints
             end_id = self.find_nearest_node(self.goal)
 
         deck = deque()
@@ -435,9 +444,10 @@ class RRT(dict):
         if len(final_list) > 10:
             final_list = final_list[0:10]
 
+        rospy.loginfo('legit response or something...')
         pr = PlanResponse()
         pr.allpoints = final_list
-        return pr
+        return final_list
 
     def new_scan(self, from_pose, scan):
         # add in all the new obstacles
@@ -486,10 +496,11 @@ class RRT(dict):
         # rospy.loginfo('prune recursive')
         self.prune_recursive()
 
-        self.obstacles.check_loading()
+        # self.obstacles.check_loading()
 
     def prune_local(self, new_pose, radius, debug=False):
         # remove any nodes in collision with a new obstacle
+        # rospy.loginfo('prune local fnn: %s' % new_pose)
         nearest_id = self.find_nearest_node(new_pose)
 
         if debug:
@@ -522,6 +533,7 @@ class RRT(dict):
     def reached_goal(self):
         if self.goal is None:
             return False
+        # rospy.loginfo('reached goal fnn: %s' % self.goal)
         nearest_id = self.find_nearest_node(self.goal)
         # True if the nearest node is less than the collision check distance
         # else False
