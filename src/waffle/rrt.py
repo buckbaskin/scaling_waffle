@@ -35,7 +35,7 @@ class MapSquare(object):
             self.deck.pop()
 
     def check_collision(self, other_pose):
-        for pose, radius in self.deck:
+        for pose, radius in list(self.deck):
             distance = self.distance_function(pose, other_pose)
             distance = distance - radius - ROBOT_RADIUS
             if distance < 0:
@@ -58,7 +58,7 @@ class ObstacleMap(object):
         self.map = [[None]*int(y_dist/self.step_size)]*int(x_dist/self.step_size)
         for xx in xrange(0, len(self.map)):
             for yy in xrange(0, len(self.map[xx])):
-                map[xx][yy] = MapSquare()
+                self.map[xx][yy] = MapSquare()
 
     def distance_function(self, pose1, pose2):
         return math.sqrt(math.pow(pose1.position.x-pose2.position.x, 2) +
@@ -109,10 +109,14 @@ class ObstacleMap(object):
             for yy in xrange(y_bucket-3, y_bucket+3+1):
                 if yy < 0:
                     continue
-                if xx >= len(self.map[xx]):
+                if yy >= len(self.map[xx]):
                     break
-                if self.map[xx][yy].check_collision(pose):
-                    return True
+                try:
+                    if self.map[xx][yy].check_collision(pose):
+                        return True
+                except IndexError as ie:
+                    rospy.loginfo('x: %d/%d, y: %d/%d' % (xx, len(self.map), yy, len(self.map[xx])))
+                    raise ie
         return False
 
 class RRTNode(Pose):
