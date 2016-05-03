@@ -19,23 +19,53 @@ from utils import quaternion_to_heading, addv
 rospy.loginfo('imported w.w_common Planner: %s' % type(Planner))
 rospy.loginfo('imported utils      addv: %s' % type(addv))
 
-class ObstacleMap(object):
-    def __init__(self, minx, maxx, miny, maxy):
-        self.children = None
-        self.obstacle_list = []
-        self.minx = minx
-        self.maxx = maxx
-        self.midx = minx/2+maxx/2
-        self.miny = miny
-        self.maxy = maxy
-        self.midy = miny/2+maxy/2
+class MapSquare(object):
+    def __init__(self):
+        self.deck = deque()
 
     def distance_function(self, pose1, pose2):
         return math.sqrt(math.pow(pose1.position.x-pose2.position.x, 2) +
             math.pow(pose1.position.y-pose2.position.y, 2) +
             math.pow(pose1.position.z-pose2.position.z, 2))
 
-    def add_obstacle(self, pose, radius, readding=False):
+    def add_obstacle(self, pose, radius):
+        # maintain a list of the 100 nearest obstacles
+        self.deck.appendleft((pose, radius,))
+        while len(self.deck) > 100:
+            self.deck.pop()
+
+    def check_collision(self, other_pose):
+        for pose, radius in list(self.deck):
+            distance = self.distance_function(pose, other_pose)
+            distance = distance - radius - ROBOT_RADIUS
+            if distance < 0:
+                return True
+
+
+class ObstacleMap(object):
+    def __init__(self, minx, maxx, miny, maxy):
+        self.children = None
+        self.obstacle_list = []
+        self.minx = minx
+        self.maxx = maxx
+        self.miny = miny
+        self.maxy = maxy
+        self.step_size = 0.25
+
+        x_dist = self.maxx - self.minx
+        y_dist = self.maxy - self.miny
+
+        self.map = [[None]*int(y_dist/self.step_size)]*int(x_dist/self.step_size)
+        for xx in xrange(0, len(self.map)):
+            for yy in xrange(0, len(self.map[xx])):
+                self.map[xx][yy] = MapSquare()
+
+    def distance_function(self, pose1, pose2):
+        return math.sqrt(math.pow(pose1.position.x-pose2.position.x, 2) +
+            math.pow(pose1.position.y-pose2.position.y, 2) +
+            math.pow(pose1.position.z-pose2.position.z, 2))
+
+    def add_obstacle(self, pose, radius):
         if pose.position.x > self.maxx:
             return None
         if pose.position.y > self.maxy:
@@ -45,48 +75,20 @@ class ObstacleMap(object):
         if pose.position.y < self.miny:
             return None
 
-        self.condense()
+        x_dist = pose.position.x - self.minx
+        y_dist = pose.position.y - self.miny
 
-        if self.children is None and not readding:
-            # then there are no sub-maps
-            self.obstacle_list.append((pose, radius,))
-            if len(self.obstacle_list) > 32:
-                try:
-                    self.sub_divide()
-                except RuntimeError as rte:
-                    rospy.loginfo('recursion depth exceeded add obstacle\n%s' % (rte,))
-                    return
+        x_bucket = int(x_dist / self.step_size)
+        y_bucket = int(y_dist / self.step_size)
 
-        else:
-            for vertical in ['top', 'middle', 'bottom']:
-                for horizontal in ['left', 'center', 'right']:
-                    self.children[vertical][horizontal].add_obstacle(pose, radius)
+        self.map[x_bucket][y_bucket].add_obstacle(pose, radius)
 
-    def sub_divide(self):
-        rospy.loginfo('splitting hairs')
-        self.children = {'top':{'left':ObstacleMap(self.minx, self.midx,
-                                    self.midy, self.maxy),
-                                'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
-                                    self.midy, self.maxy),
-                                'right': ObstacleMap(self.midx, self.maxx,
-                                    self.midy, self.maxy)},
-                        'middle':{'left':ObstacleMap(self.minx, self.midx,
-                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0),
-                                  'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
-                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0),
-                                  'right': ObstacleMap(self.midx, self.maxx,
-                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0)},
-                        'bottom':{'left':ObstacleMap(self.minx, self.midx,
-                                    self.miny, self.midy),
-                                  'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
-                                    self.miny, self.midy),
-                                  'right': ObstacleMap(self.midx, self.maxx,
-                                    self.miny, self.midy)}}
-        for obstacle in self.obstacle_list:
-            # this will add it to self.children
-            self.add_obstacle(obstacle[0], obstacle[1], readding=True)
-        self.obstacle_list = None
-
+    def check_loading(self):
+        accum = 0
+        for line in self.map:
+            for square in line:
+                accum += len(square.deck)
+        rospy.loginfo('loading: %d/%d' % (accum, 100*len(self.map)*len(self.map)))
 
     def check_collision(self, pose):
         if pose.position.x > self.maxx:
@@ -98,47 +100,31 @@ class ObstacleMap(object):
         if pose.position.y < self.miny:
             return False
 
-        if self.children is None:
-            for obstacle in self.obstacle_list:
-                obstacle_pose = obstacle[0]
-                obstacle_radius = obstacle[1]
-                if self.distance_function(pose, obstacle_pose) < obstacle_radius + ROBOT_RADIUS:
-                    return True
-        else:
-            for vertical in ['top', 'middle', 'bottom']:
-                for horizontal in ['left', 'center', 'right']:
-                    if self.children[vertical][horizontal].check_collision(pose):
+        x_dist = pose.position.x - self.minx
+        y_dist = pose.position.y - self.miny
+
+        x_bucket = int(x_dist / self.step_size)
+        y_bucket = int(y_dist / self.step_size)
+
+        # check +- 3 buckets around the pose
+
+        for xx in xrange(x_bucket-3, x_bucket+3+1):
+            if xx < 0:
+                continue
+            if xx >= len(self.map):
+                break
+            for yy in xrange(y_bucket-3, y_bucket+3+1):
+                if yy < 0:
+                    continue
+                if yy >= len(self.map[xx]):
+                    break
+                try:
+                    if self.map[xx][yy].check_collision(pose):
                         return True
+                except IndexError as ie:
+                    rospy.loginfo('x: %d/%d, y: %d/%d' % (xx, len(self.map), yy, len(self.map[xx])))
+                    raise ie
         return False
-
-    def condense(self):
-        '''
-        Combine multiple obstacles in the same place into one
-        '''
-        if self.obstacle_list is not None:
-            # rospy.loginfo('\ncondense called %d\n==========\n' % (len(self.obstacle_list),))
-            ii = 0
-            jj = 1
-            while ii < len(self.obstacle_list):
-                while jj < len(self.obstacle_list):
-                    if ii == jj:
-                        continue
-                    else:
-                        # rospy.loginfo('ii: %d jj: %d\n%s %s' % (ii, jj, type(self.obstacle_list[ii]), type(self.obstacle_list[jj]),))
-                        if (self.distance_function(self.obstacle_list[ii][0], self.obstacle_list[jj][0]) < 
-                            (self.obstacle_list[ii][1] + self.obstacle_list[ii][1])/2.0):
-                            rospy.loginfo('removed obstacle')
-                            del self.obstacle_list[jj]
-                        else:
-                            jj += 1
-                    jj += 1
-                ii += 1
-                jj = ii + 1
-            # rospy.loginfo('end condense')
-                
-
-
-
 
 class RRTNode(Pose):
     def __init__(self, pose):
@@ -163,7 +149,7 @@ class RRT(dict):
     def __init__(self, minx, maxx, miny, maxy):
         super(RRT, self).__init__()
 
-        self.obstacles = ObstacleMap(-5, 45, -5, 45)
+        self.obstacles = ObstacleMap(-5.0, 35.0, -5.0, 35.0)
         self.goal = None
 
         # start self at odometry 0
@@ -180,24 +166,30 @@ class RRT(dict):
         self.rrt_max_depth = 0
 
     def add_node_kd_it(self, rrt_node_id, depth=0, compare_id=0):
-        while depth > 10000:
+        # rospy.loginfo('add_node_kd_it left %s right %s' % (self[compare_id].kd_left, self[compare_id].kd_right,))
+        while depth < 10000:
             if depth % 2 == 0:
                 feature = 'x'
             else:
                 feature = 'y'
 
+            # if depth == 1:
+            #     rospy.loginfo('%f vs. the other %f' % (getattr(self[rrt_node_id].position, feature), getattr(self[compare_id].position, feature)))
             if getattr(self[rrt_node_id].position, feature) < getattr(self[compare_id].position, feature):
                 side = 'kd_left'
             else:
+                # rospy.loginfo('R')
                 side = 'kd_right'
 
             if getattr(self[compare_id], side) is None:
                 # if there is no child for the given node on this side
                 setattr(self[compare_id], side, rrt_node_id)
                 self[rrt_node_id].kd_parent = compare_id
+                if self.kd_max_depth < depth:
+                    self.kd_max_depth = depth
                 return
             else:
-                # if there is a child on this side, don't recursively call...
+                # if there is a child on this side, iteratively advance...
                 depth += 1
                 compare_id = getattr(self[compare_id], side)
 
@@ -228,6 +220,7 @@ class RRT(dict):
         # find its closest neighbor by id
         # set that to be its parent
         self[self.next_id] = RRTNode(pose)
+        # rospy.loginfo('add_node_rrt fnn: %s' % pose)
         self[self.next_id].rrt_parent = self.find_nearest_node(pose)
         self[self.next_id].rrt_children = []
         self.add_node_kd_it(self.next_id)
@@ -263,6 +256,7 @@ class RRT(dict):
                 expand_to_pose.position.y = y
 
         # try to expand up to that node, storing the expand_from node
+        # rospy.loginfo('expand_tree fnn: %s' % expand_to_pose)
         expand_from_id = self.find_nearest_node(expand_to_pose)
         expand_from_pose = self[expand_from_id]
 
@@ -326,13 +320,29 @@ class RRT(dict):
                 # if there isn't a collision at the expand_to pose
                 self.add_node_rrt(expand_to_pose)
 
-    def find_nearest_node(self, pose):
-        best_id, best_distance, depth = self.find_nearest_node_down_it(pose)
+    def find_nearest_node(self, pose, debug=False):
+        if debug:
+            rospy.loginfo('begin debug of find_nearest_node_down_it')
+        best_id, best_distance, depth = self.find_nearest_node_down_it(pose, debug=debug)
+        if best_id == -1:
+            raise KeyError('Find nearest node had an error.')
+        if debug:
+            rospy.loginfo('reprere (%d, %f, %d,)' % (best_id, best_distance, depth,))
         return self.find_nearest_node_up(pose, best_id, depth, best_id, best_distance)
 
-    def find_nearest_node_down_it(self, pose, depth=0, root_index=0):
-        current_node = self[root_index]
+    def print_parent_chain(self, start_id):
+        accum = 'print_parent_chain\n'
+        while start_id is not None:
+            accum += start_id+'\n'
+            if start_id == self[start_id].kd_parent:
+                rospy.loginfo('error, child is its own parent')
+            start_id = self[start_id].kd_parent
+        rospy.loginfo(accum)
 
+    def find_nearest_node_down_it(self, pose, depth=0, root_index=0, debug=False):
+        # current_node = self[root_index]
+        if debug:
+            rospy.loginfo('find_nearest_node_down_it\n%d %d %r %r' % (depth, root_index, depth < 10000, debug,))
         while depth < 10000:
             if (depth % 2) == 0:
                 feature = 'x'
@@ -344,6 +354,9 @@ class RRT(dict):
             else:
                 side = 'kd_right'
 
+            if debug:
+                rospy.loginfo('d: %d i: %d f: %s s: %s' % (depth, root_index, feature, side))
+            
             if getattr(self[root_index], side) is None:
                 if depth > self.kd_max_depth:
                     self.kd_max_depth = depth
@@ -351,10 +364,12 @@ class RRT(dict):
                 return (root_index, self.distance_function(self[root_index], pose), depth,)
             else:
                 depth += 1
-                if getattr(self[root_index], side) is not None:
-                    root_index = getattr(self[root_index], side)
-                else:
-                    rospy.loginfo("I didn't return for some reason at %d" % (root_index,))
+                if debug:
+                    rospy.loginfo('old root: %d new root: %d' % (root_index, getattr(self[root_index], side),))
+                root_index = getattr(self[root_index], side)
+        rospy.loginfo('fnndi no value. %d %d\n%s' % (depth, root_index, pose,))
+        self.print_parent_chain()
+        return (-1, float('inf'), depth,)
 
     def find_nearest_node_down(self, pose, depth=0, root_index=0):
         if (depth % 2) == 0:
@@ -419,6 +434,7 @@ class RRT(dict):
     def generate_plan(self):
         end_id = 0
         if self.reached_goal():
+            rospy.loginfo('gen plan: reached goal, doing A*')
             nodeheap = []
             heappush(nodeheap, (self.distance_function(self[0], self.goal), 0))
             
@@ -437,7 +453,15 @@ class RRT(dict):
                         heappush(nodeheap, (child_heuristic, child_id))
 
         else:
-            end_id = self.find_nearest_node(self.goal)
+            if self.goal is None:
+                rospy.loginfo('no goal yet :(')
+                pr = PlanResponse()
+                pr.allpoints = [Pose()]
+                for val1 in pr.allpoints:
+                    _x = val1.position
+                    print('_x: %s' % _x)
+                return pr.allpoints
+            end_id = self.find_nearest_node(self.goal, True)
 
         deck = deque()
         deck.appendleft(self[end_id])
@@ -449,9 +473,10 @@ class RRT(dict):
         if len(final_list) > 10:
             final_list = final_list[0:10]
 
+        rospy.loginfo('legit response or something... %d' % end_id)
         pr = PlanResponse()
         pr.allpoints = final_list
-        return pr
+        return final_list
 
     def new_scan(self, from_pose, scan):
         # add in all the new obstacles
@@ -489,7 +514,10 @@ class RRT(dict):
             # rospy.loginfo('end adding obstacle')
 
             # check if I need to prune
-            self.prune_local(new_pose, radius)
+            try:
+                self.prune_local(new_pose, radius)
+            except KeyError as ke:
+                pass
 
             # rospy.loginfo('start prune local')
 
@@ -500,13 +528,11 @@ class RRT(dict):
         # rospy.loginfo('prune recursive')
         self.prune_recursive()
 
-        # remove previously seen obstacles that are too close to existing
-        #   obstacles
-
-        self.obstacles.condense()
+        # self.obstacles.check_loading()
 
     def prune_local(self, new_pose, radius, debug=False):
         # remove any nodes in collision with a new obstacle
+        # rospy.loginfo('prune local fnn: %s' % new_pose)
         nearest_id = self.find_nearest_node(new_pose)
 
         if debug:
@@ -539,11 +565,12 @@ class RRT(dict):
     def reached_goal(self):
         if self.goal is None:
             return False
+        # rospy.loginfo('reached goal fnn: %s' % self.goal)
         nearest_id = self.find_nearest_node(self.goal)
         # True if the nearest node is less than the collision check distance
         # else False
         if self.distance_function(self[nearest_id], self.goal) < .1:
-            rospy.loginfo('found a path to a goal!')
+            # rospy.loginfo('found a path to a goal! %d' % (nearest_id,))
             return True
         return False
 
