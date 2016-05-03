@@ -166,24 +166,30 @@ class RRT(dict):
         self.rrt_max_depth = 0
 
     def add_node_kd_it(self, rrt_node_id, depth=0, compare_id=0):
-        while depth > 10000:
+        # rospy.loginfo('add_node_kd_it left %s right %s' % (self[compare_id].kd_left, self[compare_id].kd_right,))
+        while depth < 10000:
             if depth % 2 == 0:
                 feature = 'x'
             else:
                 feature = 'y'
 
+            # if depth == 1:
+            #     rospy.loginfo('%f vs. the other %f' % (getattr(self[rrt_node_id].position, feature), getattr(self[compare_id].position, feature)))
             if getattr(self[rrt_node_id].position, feature) < getattr(self[compare_id].position, feature):
                 side = 'kd_left'
             else:
+                # rospy.loginfo('R')
                 side = 'kd_right'
 
             if getattr(self[compare_id], side) is None:
                 # if there is no child for the given node on this side
                 setattr(self[compare_id], side, rrt_node_id)
                 self[rrt_node_id].kd_parent = compare_id
+                if self.kd_max_depth < depth:
+                    self.kd_max_depth = depth
                 return
             else:
-                # if there is a child on this side, don't recursively call...
+                # if there is a child on this side, iteratively advance...
                 depth += 1
                 compare_id = getattr(self[compare_id], side)
 
@@ -314,12 +320,29 @@ class RRT(dict):
                 # if there isn't a collision at the expand_to pose
                 self.add_node_rrt(expand_to_pose)
 
-    def find_nearest_node(self, pose):
-        best_id, best_distance, depth = self.find_nearest_node_down_it(pose)
+    def find_nearest_node(self, pose, debug=False):
+        if debug:
+            rospy.loginfo('begin debug of find_nearest_node_down_it')
+        best_id, best_distance, depth = self.find_nearest_node_down_it(pose, debug=debug)
+        if best_id == -1:
+            raise KeyError('Find nearest node had an error.')
+        if debug:
+            rospy.loginfo('reprere (%d, %f, %d,)' % (best_id, best_distance, depth,))
         return self.find_nearest_node_up(pose, best_id, depth, best_id, best_distance)
 
-    def find_nearest_node_down_it(self, pose, depth=0, root_index=0):
+    def print_parent_chain(self, start_id):
+        accum = 'print_parent_chain\n'
+        while start_id is not None:
+            accum += start_id+'\n'
+            if start_id == self[start_id].kd_parent:
+                rospy.loginfo('error, child is its own parent')
+            start_id = self[start_id].kd_parent
+        rospy.loginfo(accum)
+
+    def find_nearest_node_down_it(self, pose, depth=0, root_index=0, debug=False):
         # current_node = self[root_index]
+        if debug:
+            rospy.loginfo('find_nearest_node_down_it\n%d %d %r %r' % (depth, root_index, depth < 10000, debug,))
         while depth < 10000:
             if (depth % 2) == 0:
                 feature = 'x'
@@ -331,6 +354,9 @@ class RRT(dict):
             else:
                 side = 'kd_right'
 
+            if debug:
+                rospy.loginfo('d: %d i: %d f: %s s: %s' % (depth, root_index, feature, side))
+            
             if getattr(self[root_index], side) is None:
                 if depth > self.kd_max_depth:
                     self.kd_max_depth = depth
@@ -338,10 +364,12 @@ class RRT(dict):
                 return (root_index, self.distance_function(self[root_index], pose), depth,)
             else:
                 depth += 1
-                if getattr(self[root_index], side) is not None:
-                    root_index = getattr(self[root_index], side)
-                else:
-                    rospy.loginfo("I didn't return for some reason at %d" % (root_index,))
+                if debug:
+                    rospy.loginfo('old root: %d new root: %d' % (root_index, getattr(self[root_index], side),))
+                root_index = getattr(self[root_index], side)
+        rospy.loginfo('fnndi no value. %d %d\n%s' % (depth, root_index, pose,))
+        self.print_parent_chain()
+        return (-1, float('inf'), depth,)
 
     def find_nearest_node_down(self, pose, depth=0, root_index=0):
         if (depth % 2) == 0:
@@ -406,6 +434,7 @@ class RRT(dict):
     def generate_plan(self):
         end_id = 0
         if self.reached_goal():
+            rospy.loginfo('gen plan: reached goal, doing A*')
             nodeheap = []
             heappush(nodeheap, (self.distance_function(self[0], self.goal), 0))
             
@@ -432,7 +461,7 @@ class RRT(dict):
                     _x = val1.position
                     print('_x: %s' % _x)
                 return pr.allpoints
-            end_id = self.find_nearest_node(self.goal)
+            end_id = self.find_nearest_node(self.goal, True)
 
         deck = deque()
         deck.appendleft(self[end_id])
@@ -444,7 +473,7 @@ class RRT(dict):
         if len(final_list) > 10:
             final_list = final_list[0:10]
 
-        rospy.loginfo('legit response or something...')
+        rospy.loginfo('legit response or something... %d' % end_id)
         pr = PlanResponse()
         pr.allpoints = final_list
         return final_list
@@ -485,7 +514,10 @@ class RRT(dict):
             # rospy.loginfo('end adding obstacle')
 
             # check if I need to prune
-            self.prune_local(new_pose, radius)
+            try:
+                self.prune_local(new_pose, radius)
+            except KeyError as ke:
+                pass
 
             # rospy.loginfo('start prune local')
 
@@ -538,7 +570,7 @@ class RRT(dict):
         # True if the nearest node is less than the collision check distance
         # else False
         if self.distance_function(self[nearest_id], self.goal) < .1:
-            rospy.loginfo('found a path to a goal!')
+            # rospy.loginfo('found a path to a goal! %d' % (nearest_id,))
             return True
         return False
 
