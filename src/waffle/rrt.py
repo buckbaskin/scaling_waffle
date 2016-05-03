@@ -19,16 +19,46 @@ from utils import quaternion_to_heading, addv
 rospy.loginfo('imported w.w_common Planner: %s' % type(Planner))
 rospy.loginfo('imported utils      addv: %s' % type(addv))
 
+class MapSquare(object):
+    def __init__(self):
+        self.deck = deque()
+
+    def distance_function(self, pose1, pose2):
+        return math.sqrt(math.pow(pose1.position.x-pose2.position.x, 2) +
+            math.pow(pose1.position.y-pose2.position.y, 2) +
+            math.pow(pose1.position.z-pose2.position.z, 2))
+
+    def add_obstacle(self, pose, radius):
+        # maintain a list of the 100 nearest obstacles
+        self.deck.appendleft((pose, radius,))
+        while len(deck) > 100:
+            deck.pop()
+
+    def check_collision(self, other_pose):
+        for pose, radius in self.deck:
+            distance = self.distance_function(pose, other_pose)
+            distance = distance - radius - ROBOT_RADIUS
+            if distance < 0:
+                return True
+
+
 class ObstacleMap(object):
     def __init__(self, minx, maxx, miny, maxy):
         self.children = None
         self.obstacle_list = []
         self.minx = minx
         self.maxx = maxx
-        self.midx = minx/2+maxx/2
         self.miny = miny
         self.maxy = maxy
-        self.midy = miny/2+maxy/2
+        self.step_size = 0.25
+
+        x_dist = self.maxx - self.minx
+        y_dist = self.maxy - self.miny
+
+        self.map = [[None]*int(y_dist/self.step_size)]*int(x_dist/self.step_size)
+        for xx in xrange(0, len(map)):
+            for yy in xrange(0, len(map[xx])):
+                map[xx][yy] = MapSquare()
 
     def distance_function(self, pose1, pose2):
         return math.sqrt(math.pow(pose1.position.x-pose2.position.x, 2) +
@@ -45,48 +75,7 @@ class ObstacleMap(object):
         if pose.position.y < self.miny:
             return None
 
-        self.condense()
-
-        if self.children is None and not readding:
-            # then there are no sub-maps
-            self.obstacle_list.append((pose, radius,))
-            if len(self.obstacle_list) > 32:
-                try:
-                    self.sub_divide()
-                except RuntimeError as rte:
-                    rospy.loginfo('recursion depth exceeded add obstacle\n%s' % (rte,))
-                    return
-
-        else:
-            for vertical in ['top', 'middle', 'bottom']:
-                for horizontal in ['left', 'center', 'right']:
-                    self.children[vertical][horizontal].add_obstacle(pose, radius)
-
-    def sub_divide(self):
-        rospy.loginfo('splitting hairs')
-        self.children = {'top':{'left':ObstacleMap(self.minx, self.midx,
-                                    self.midy, self.maxy),
-                                'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
-                                    self.midy, self.maxy),
-                                'right': ObstacleMap(self.midx, self.maxx,
-                                    self.midy, self.maxy)},
-                        'middle':{'left':ObstacleMap(self.minx, self.midx,
-                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0),
-                                  'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
-                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0),
-                                  'right': ObstacleMap(self.midx, self.maxx,
-                                    self.miny/2.0+self.midy/2.0, self.maxy/2.0+self.midy/2.0)},
-                        'bottom':{'left':ObstacleMap(self.minx, self.midx,
-                                    self.miny, self.midy),
-                                  'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
-                                    self.miny, self.midy),
-                                  'right': ObstacleMap(self.midx, self.maxx,
-                                    self.miny, self.midy)}}
-        for obstacle in self.obstacle_list:
-            # this will add it to self.children
-            self.add_obstacle(obstacle[0], obstacle[1], readding=True)
-        self.obstacle_list = None
-
+        # TODO(buckbaskin): start here
 
     def check_collision(self, pose):
         if pose.position.x > self.maxx:
@@ -109,35 +98,7 @@ class ObstacleMap(object):
                 for horizontal in ['left', 'center', 'right']:
                     if self.children[vertical][horizontal].check_collision(pose):
                         return True
-        return False
-
-    def condense(self):
-        '''
-        Combine multiple obstacles in the same place into one
-        '''
-        if self.obstacle_list is not None:
-            # rospy.loginfo('\ncondense called %d\n==========\n' % (len(self.obstacle_list),))
-            ii = 0
-            jj = 1
-            while ii < len(self.obstacle_list):
-                while jj < len(self.obstacle_list):
-                    if ii == jj:
-                        continue
-                    else:
-                        # rospy.loginfo('ii: %d jj: %d\n%s %s' % (ii, jj, type(self.obstacle_list[ii]), type(self.obstacle_list[jj]),))
-                        if (self.distance_function(self.obstacle_list[ii][0], self.obstacle_list[jj][0]) < 
-                            (self.obstacle_list[ii][1] + self.obstacle_list[ii][1])/2.0):
-                            rospy.loginfo('removed obstacle')
-                            del self.obstacle_list[jj]
-                        else:
-                            jj += 1
-                    jj += 1
-                ii += 1
-                jj = ii + 1
-            # rospy.loginfo('end condense')
-                
-
-
+        return False                
 
 
 class RRTNode(Pose):
@@ -163,7 +124,7 @@ class RRT(dict):
     def __init__(self, minx, maxx, miny, maxy):
         super(RRT, self).__init__()
 
-        self.obstacles = ObstacleMap(-5, 45, -5, 45)
+        self.obstacles = ObstacleMap(-5.0, 35.0, -5.0, 35.0)
         self.goal = None
 
         # start self at odometry 0
