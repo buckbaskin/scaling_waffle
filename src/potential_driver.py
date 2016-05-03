@@ -1,24 +1,21 @@
 #!/usr/bin/env python
 
-#pylint: disable=global-statement
-
 '''
-Create a ROS node that uses rapidly exploring random trees to do driving
+Create a ROS node that uses potential fields to do driving
 '''
 
 import rospy
 
 import math
-import sys
 
-from geometry_msgs.msg import Pose, PoseStamped, Twist
+from geometry_msgs.msg import Pose, Twist
 from nav_msgs.msg import Odometry
-# from scaling_waffle.srv import PotentialField, PotentialFieldResponse
-from scaling_waffle.srv import Plan
-from utils import quaternion_to_heading
+from scaling_waffle.srv import PotentialField, PotentialFieldResponse
+from scaling_waffle.srv import Plan, PlanResponse
+from sensor_msgs.msg import LaserScan
+from utils import quaternion_to_heading, heading_to_quaternion
 
 DRIVER = None
-PATHVIZ = None
 
 positions = [None]
 goals = []
@@ -33,7 +30,6 @@ crash_flag = False
 count = 0
 
 get_plan = None
-reset_root = None
 
 def distance(pose1, pose2):
     # rospy.loginfo(''+str(type(pose1))+' '+str(type(pose2)))
@@ -42,17 +38,6 @@ def distance(pose1, pose2):
     x2 = pose2.position.x
     y2 = pose2.position.y
     return math.sqrt(math.pow(x1-x2,2) + math.pow(y1-y2,2))
-
-def minimize(dtheta):
-    while dtheta >= 2*math.pi:
-        dtheta = dtheta - 2*math.pi
-    while dtheta <= -2*math.pi:
-        dtheta = dtheta + 2*math.pi
-    if dtheta > math.pi:
-        dtheta = -2*math.pi + dtheta
-    if dtheta < -math.pi:
-        dtheta = 2*math.pi + dtheta
-    return dtheta
 
 def odom_cb(odom):
     global start
@@ -68,39 +53,27 @@ def odom_cb(odom):
         if DRIVER is not None:
             if distance(end, odom.pose.pose) > .01:
                 rospy.loginfo('Driver: get a new set of goals')
-                if rrt:
-                    DRIVER.publish(Twist())
-                    rospy.wait_for_service('/rrt/reset')
-                    reset_root(positions[0].pose.pose, end)
                 goals = get_plan(odom.pose.pose, end).allpoints
                 if (len(goals) == 0):
                     rospy.loginfo('Driver: arrived at goal')
                     DRIVER.publish(Twist())
                     global crash_flag
                     crash_flag = True
-                else:
-                    for pose in goals:
-                        ps = PoseStamped()
-                        ps.pose = pose
-                        ps.header.frame_id = '/odom'
-                        if PATHVIZ is not None:
-                            PATHVIZ.publish(ps)
             else:
                 rospy.loginfo('Driver: empty goals list')
                 DRIVER.publish(Twist())
-                
                 goals = get_plan(odom.pose.pose, end).allpoints
                 if (len(goals) == 0):
                     rospy.loginfo('Driver: arrived at goal')
                     DRIVER.publish(Twist())
-                    
+                    import sys
                     sys.exit(0)
         return
-    elif distance(odom.pose.pose, goals[0]) < .05:
+    elif distance(odom.pose.pose, goals[0]) < .02:
         # if I'm on the goal, remove the current goal, set the speed to 0
-        goals.pop(0)
+        to_print = goals.pop(0)
         count += 1
-        
+        # rospy.loginfo('@ '+str(to_print))
         if DRIVER is not None:
             # rospy.loginfo('Driver: next goal')
             DRIVER.publish(Twist())
@@ -126,7 +99,16 @@ def odom_cb(odom):
         current_direction = quaternion_to_heading(current_position.orientation)
 
         dtheta = goal_direction - current_direction
-        dtheta = minimize(dtheta)
+
+        while dtheta >= 2*math.pi:
+            dtheta = dtheta - 2*math.pi
+        while dtheta <= -2*math.pi:
+            dtheta = dtheta + 2*math.pi
+        if dtheta > math.pi:
+            dtheta = -2*math.pi + dtheta
+        if dtheta < -math.pi:
+            dtheta = 2*math.pi + dtheta
+
 
         t.angular.z = dtheta/(2.0*dt)
 
@@ -158,55 +140,32 @@ if __name__ == '__main__':
 
     ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
 
-    rrt = True
-    if rrt:
-        rospy.loginfo('waiting for rrt plan service')
-        rospy.wait_for_service('/rrt/plan')
-        rospy.wait_for_service('/rrt/reset')
-        get_plan = rospy.ServiceProxy('/rrt/plan', Plan)
-        reset_root = rospy.ServiceProxy('/rrt/reset', Plan)
-        rospy.loginfo('found rrt plan service')
-    else:
-        rospy.loginfo('waiting for potential plan service')
-        rospy.wait_for_service('/potential/plan')
-        get_plan = rospy.ServiceProxy('/potential/plan', Plan)
-        rospy.loginfo('found potential plan service')
+    rospy.loginfo('waiting for potential plan service')
+    rospy.wait_for_service('/potential/plan')
+
+    get_plan = rospy.ServiceProxy('/potential/plan', Plan)
+    rospy.loginfo('found potential plan service')
 
     rate_limit = rospy.Rate(2)
     while start is None:
         rate_limit.sleep()
 
-    # rospy.loginfo('start and end\n'+str(start)+'\n'+str(end))
+    rospy.loginfo('start and end\n'+str(start)+'\n'+str(end))
 
     resp1 = get_plan(start, end)
     goals = resp1.allpoints
-    
-    PATHVIZ = rospy.Publisher('/pathviz', PoseStamped, queue_size=1)
-    for pose in goals:
-        ps = PoseStamped()
-        ps.pose = pose
-        ps.header.frame_id = '/odom'
-        if PATHVIZ is not None:
-            PATHVIZ.publish(ps)
-    
     rospy.loginfo('I got a %d step plan' % (len(goals)))
     if (len(goals) == 0):
         rospy.loginfo('already at goal')
-        
+        import sys
         sys.exit(0)
     waiting_for_plan = False
     
     DRIVER = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
-    GOALER = rospy.Publisher('/rrt/goal', Odometry, queue_size=1)
 
     rospy.loginfo('Driver: start simple_driver')
     while(not rospy.is_shutdown()):
-        odo = Odometry()
-        odo.header.frame_id = '/odom'
-        odo.pose.pose = end
-        GOALER.publish(odo)
-        rate_limit.sleep()
         if crash_flag:
-            
+            import sys
             sys.exit(0)
     rospy.loginfo('Driver: shutdown')
