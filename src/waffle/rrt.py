@@ -83,6 +83,13 @@ class ObstacleMap(object):
 
         self.map[x_bucket][y_bucket].add_obstacle(pose, radius)
 
+    def check_loading(self):
+        accum = 0
+        for line in self.map:
+            for square in line:
+                accum += len(square.deck)
+        rospy.loginfo('loading: %d/%d' % (accum, 100*len(self.map)*len(self.map)))
+
     def check_collision(self, pose):
         if pose.position.x > self.maxx:
             return False
@@ -478,6 +485,8 @@ class RRT(dict):
         #   passing by new obstacles
         # rospy.loginfo('prune recursive')
         self.prune_recursive()
+
+        self.obstacles.check_loading()
 
     def prune_local(self, new_pose, radius, debug=False):
         # remove any nodes in collision with a new obstacle
