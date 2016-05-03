@@ -28,7 +28,8 @@ def odom_cb(msg):
 def laser_cb(msg):
     # rospy.loginfo('laser callback')
     # rospy.loginfo('fg: %r %r' % (CLASSIC_WAFFLE.goal is None, CLASSIC_WAFFLE.reached_goal()))
-    CLASSIC_WAFFLE.new_scan(CLASSIC_WAFFLE.last_pose, msg)
+    if hasattr(CLASSIC_WAFFLE, 'last_pose'):
+        CLASSIC_WAFFLE.new_scan(CLASSIC_WAFFLE.last_pose, msg)
     # rospy.loginfo('end laser callback')
 
 def reset_root(srv):
@@ -38,6 +39,8 @@ def reset_root(srv):
                             CLASSIC_WAFFLE.miny, CLASSIC_WAFFLE.maxy,
                             pose=new_root, obstacles=CLASSIC_WAFFLE.obstacles)
     CLASSIC_WAFFLE.set_goal(srv.goal)
+    while not rospy.is_shutdown() and not CLASSIC_WAFFLE.reached_goal():
+        CLASSIC_WAFFLE.expand_tree()
     return []
 
 def plan_srv(dummy_srv):

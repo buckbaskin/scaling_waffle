@@ -326,6 +326,7 @@ class RRT(dict):
             if not self.obstacles.check_collision(expand_to_pose):
                 # if there isn't a collision at the expand_to pose
                 self.add_node_rrt(expand_to_pose)
+        rospy.loginfo('expanded. %f' % (self.reached_goal_dist()))
 
     def find_nearest_node(self, pose, debug=False):
         if debug:
@@ -340,7 +341,7 @@ class RRT(dict):
     def print_parent_chain(self, start_id):
         accum = 'print_parent_chain\n'
         while start_id is not None:
-            accum += start_id+'\n'
+            accum += str(start_id)+'\n'
             if start_id == self[start_id].kd_parent:
                 rospy.loginfo('error, child is its own parent')
             start_id = self[start_id].kd_parent
@@ -375,7 +376,7 @@ class RRT(dict):
                     rospy.loginfo('old root: %d new root: %d' % (root_index, getattr(self[root_index], side),))
                 root_index = getattr(self[root_index], side)
         rospy.loginfo('fnndi no value. %d %d\n%s' % (depth, root_index, pose,))
-        self.print_parent_chain()
+        self.print_parent_chain(root_index)
         return (-1, float('inf'), depth,)
 
     def find_nearest_node_down(self, pose, depth=0, root_index=0):
@@ -430,10 +431,11 @@ class RRT(dict):
             else:
                 side = 'kd_right'
 
-            other_id, other_distance, dummy_depth = self.find_nearest_node_down(pose, parent_depth+1, getattr(self[parent_id], side))
-            if other_distance < best_distance:
-                best_id = other_id
-                best_distance = other_distance
+            if getattr(self[parent_id], side) is not None:
+                other_id, other_distance, dummy_depth = self.find_nearest_node_down(pose=pose, depth=parent_depth+1, root_index=getattr(self[parent_id], side))
+                if other_distance < best_distance:
+                    best_id = other_id
+                    best_distance = other_distance
         
         # now I for sure have the best node 
         return self.find_nearest_node_up(pose, self[next_id].kd_parent, depth-1, best_id, best_distance)
@@ -582,6 +584,15 @@ class RRT(dict):
             # rospy.loginfo('found a path to a goal! %d' % (nearest_id,))
             return True
         return False
+
+    def reached_goal_dist(self):
+        if self.goal is None:
+            return float('inf')
+        # rospy.loginfo('reached goal fnn: %s' % self.goal)
+        nearest_id = self.find_nearest_node(self.goal)
+        # True if the nearest node is less than the collision check distance
+        # else False
+        return self.distance_function(self[nearest_id], self.goal)
 
     def remove_node_by_id(self, destroy_id):
         if destroy_id <= 0:

@@ -43,6 +43,17 @@ def distance(pose1, pose2):
     y2 = pose2.position.y
     return math.sqrt(math.pow(x1-x2,2) + math.pow(y1-y2,2))
 
+def minimize(dtheta):
+    while dtheta >= 2*math.pi:
+        dtheta = dtheta - 2*math.pi
+    while dtheta <= -2*math.pi:
+        dtheta = dtheta + 2*math.pi
+    if dtheta > math.pi:
+        dtheta = -2*math.pi + dtheta
+    if dtheta < -math.pi:
+        dtheta = 2*math.pi + dtheta
+    return dtheta
+
 def odom_cb(odom):
     global start
     global count
@@ -59,6 +70,7 @@ def odom_cb(odom):
                 rospy.loginfo('Driver: get a new set of goals')
                 if rrt:
                     DRIVER.publish(Twist())
+                    rospy.wait_for_service('/rrt/reset')
                     reset_root(positions[0].pose.pose, end)
                 goals = get_plan(odom.pose.pose, end).allpoints
                 if (len(goals) == 0):
@@ -84,7 +96,7 @@ def odom_cb(odom):
                     
                     sys.exit(0)
         return
-    elif distance(odom.pose.pose, goals[0]) < .02:
+    elif distance(odom.pose.pose, goals[0]) < .05:
         # if I'm on the goal, remove the current goal, set the speed to 0
         goals.pop(0)
         count += 1
@@ -114,16 +126,7 @@ def odom_cb(odom):
         current_direction = quaternion_to_heading(current_position.orientation)
 
         dtheta = goal_direction - current_direction
-
-        while dtheta >= 2*math.pi:
-            dtheta = dtheta - 2*math.pi
-        while dtheta <= -2*math.pi:
-            dtheta = dtheta + 2*math.pi
-        if dtheta > math.pi:
-            dtheta = -2*math.pi + dtheta
-        if dtheta < -math.pi:
-            dtheta = 2*math.pi + dtheta
-
+        dtheta = minimize(dtheta)
 
         t.angular.z = dtheta/(2.0*dt)
 
@@ -177,6 +180,15 @@ if __name__ == '__main__':
 
     resp1 = get_plan(start, end)
     goals = resp1.allpoints
+    
+    PATHVIZ = rospy.Publisher('/pathviz', PoseStamped, queue_size=1)
+    for pose in goals:
+        ps = PoseStamped()
+        ps.pose = pose
+        ps.header.frame_id = '/odom'
+        if PATHVIZ is not None:
+            PATHVIZ.publish(ps)
+    
     rospy.loginfo('I got a %d step plan' % (len(goals)))
     if (len(goals) == 0):
         rospy.loginfo('already at goal')
@@ -185,7 +197,6 @@ if __name__ == '__main__':
     waiting_for_plan = False
     
     DRIVER = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
-    PATHVIZ = rospy.Publisher('/pathviz', PoseStamped, queue_size=1)
     GOALER = rospy.Publisher('/rrt/goal', Odometry, queue_size=1)
 
     rospy.loginfo('Driver: start simple_driver')
