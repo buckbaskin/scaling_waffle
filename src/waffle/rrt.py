@@ -15,7 +15,7 @@ from math import cos, sin
 # from sensor_msgs.msg import LaserScan
 from scaling_waffle.srv import PlanResponse
 from waffle.waffle_common import Planner, ROBOT_RADIUS
-from utils import quaternion_to_heading, addv
+from utils import quaternion_to_heading, heading_to_quaternion, addv
 
 rospy.loginfo('imported w.w_common Planner: %s' % type(Planner))
 rospy.loginfo('imported utils      addv: %s' % type(addv))
@@ -172,10 +172,13 @@ class RRT(dict):
 
         self.kd_max_depth = 0
         self.rrt_max_depth = 0
+        self.RRT_VIS = None
 
     def add_node_kd_it(self, rrt_node_id, depth=0, compare_id=0):
         # rospy.loginfo('add_node_kd_it left %s right %s' % (self[compare_id].kd_left, self[compare_id].kd_right,))
         while depth < 10000:
+            if rrt_node_id == compare_id:
+                return
             if depth % 2 == 0:
                 feature = 'x'
             else:
@@ -191,11 +194,12 @@ class RRT(dict):
 
             if getattr(self[compare_id], side) is None:
                 # if there is no child for the given node on this side
-                setattr(self[compare_id], side, rrt_node_id)
-                self[rrt_node_id].kd_parent = compare_id
-                if self.kd_max_depth < depth:
-                    self.kd_max_depth = depth
-                return
+                if not (rrt_node_id == compare_id):
+                    setattr(self[compare_id], side, rrt_node_id)
+                    self[rrt_node_id].kd_parent = compare_id
+                    if self.kd_max_depth < depth:
+                        self.kd_max_depth = depth
+                    return
             else:
                 # if there is a child on this side, iteratively advance...
                 depth += 1
@@ -231,15 +235,25 @@ class RRT(dict):
             ps.header.frame_id = '/odom'
             rospy.loginfo('publish odom')
             self.RRT_VIS.publish(ps)
+        elif hasattr(self, 'RRT_VIS'):
+            rospy.loginfo('tried to pub, but None')
+        else:
+            rospy.loginfo('tried to pub')
         # find its closest neighbor by id
         # set that to be its parent
         self[self.next_id] = RRTNode(pose)
         # rospy.loginfo('add_node_rrt fnn: %s' % pose)
-        self[self.next_id].rrt_parent = self.find_nearest_node(pose)
-        self[self.next_id].rrt_children = []
-        self.add_node_kd_it(self.next_id)
-        self.next_id += 1
-        return self.next_id - 1
+        try:
+            self[self.next_id].rrt_parent = self.find_nearest_node(pose)
+            self[self.next_id].rrt_children = []
+            self.add_node_kd_it(self.next_id)
+            self.next_id += 1
+            return self.next_id - 1
+        except KeyError as ke:
+            rospy.loginfo('key error adding a node to the rrt')
+            self.next_id += 1
+            return -1
+
 
     def distance_function(self, pose1, pose2):
         dx = pose1.position.x - pose2.position.x
@@ -247,14 +261,17 @@ class RRT(dict):
         return math.sqrt(math.pow(dx, 2) + math.pow(dy, 2))
 
     def expand_tree(self):
+        IAddedThisMany = 0
         if self.reached_goal():
             # don't expand
             return
         if self.goal is not None and random.uniform(0.0, 1.0) < .10:
             # choose the goal with 10% certainty
+            rospy.loginfo('greedy step')
             expand_to_pose = self.goal
         else:
             # put the expand_to_pose in random free space
+            # rospy.loginfo('minx: %f  maxx: %f' % (self.minx, self.maxx,))
             x = random.uniform(self.minx, self.maxx)
             y = random.uniform(self.miny, self.maxy)
 
@@ -291,9 +308,13 @@ class RRT(dict):
         dx = (dx / distance) * collision_step
         dy = (dy / distance) * collision_step
 
+        bearing_to_next = math.atan2(dy, dx)
+
         collision_pose = Pose()
         collision_pose.position.x = expand_from_pose.position.x + dx
         collision_pose.position.y = expand_from_pose.position.y + dy
+        collision_pose.orientation = heading_to_quaternion(bearing_to_next)
+        expand_to_pose.orientation = collision_pose.orientation
 
         # check collision
         # self.obstacles.check_collision(choose_pose)
@@ -313,6 +334,7 @@ class RRT(dict):
                     collision_pose.position.y += -dy
                     # make a new node at that point
                     self.add_node_rrt(collision_pose)
+                    IAddedThisMany += 1
                     break
                 else:
                     # I just added a plan-step node
@@ -322,6 +344,7 @@ class RRT(dict):
                 if (count % collision_steps_per_plan) == 0:
                     # add a planner-step pose (every meter)
                     self.add_node_rrt(collision_pose)
+                    IAddedThisMany += 1
 
                 collision_pose.position.x += dx
                 collision_pose.position.y += dy
@@ -333,7 +356,8 @@ class RRT(dict):
             if not self.obstacles.check_collision(expand_to_pose):
                 # if there isn't a collision at the expand_to pose
                 self.add_node_rrt(expand_to_pose)
-        rospy.loginfo('expanded. %f' % (self.reached_goal_dist()))
+                IAddedThisMany += 1
+        rospy.loginfo('expanded %d. %f' % (IAddedThisMany, self.reached_goal_dist(),))
 
     def find_nearest_node(self, pose, debug=False):
         if debug:
@@ -497,6 +521,8 @@ class RRT(dict):
         return final_list
 
     def new_scan(self, from_pose, scan):
+        if self.RRT_VIS is None:
+            self.RRT_VIS = rospy.Publisher('/rrt/visual', Odometry, queue_size=1)
         # add in all the new obstacles
         # rospy.loginfo('new scan')
         angle = scan.angle_min+quaternion_to_heading(from_pose.orientation)
