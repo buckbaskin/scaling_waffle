@@ -44,10 +44,13 @@ class ObstacleMap(object):
             return None
         if pose.position.y < self.miny:
             return None
+
+        self.condense()
+
         if self.children is None and not readding:
             # then there are no sub-maps
             self.obstacle_list.append((pose, radius,))
-            if len(self.obstacle_list) > 300:
+            if len(self.obstacle_list) > 32:
                 try:
                     self.sub_divide()
                 except RuntimeError as rte:
@@ -60,7 +63,7 @@ class ObstacleMap(object):
                     self.children[vertical][horizontal].add_obstacle(pose, radius)
 
     def sub_divide(self):
-        # rospy.loginfo('sub_divide called, creating children + minx %f + maxx %f' % (self.minx, self.maxx,))
+        rospy.loginfo('splitting hairs')
         self.children = {'top':{'left':ObstacleMap(self.minx, self.midx,
                                     self.midy, self.maxy),
                                 'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
@@ -112,7 +115,29 @@ class ObstacleMap(object):
         '''
         Combine multiple obstacles in the same place into one
         '''
-        pass
+        if self.obstacle_list is not None:
+            # rospy.loginfo('\ncondense called %d\n==========\n' % (len(self.obstacle_list),))
+            ii = 0
+            jj = 1
+            while ii < len(self.obstacle_list):
+                while jj < len(self.obstacle_list):
+                    if ii == jj:
+                        continue
+                    else:
+                        # rospy.loginfo('ii: %d jj: %d\n%s %s' % (ii, jj, type(self.obstacle_list[ii]), type(self.obstacle_list[jj]),))
+                        if (self.distance_function(self.obstacle_list[ii][0], self.obstacle_list[jj][0]) < 
+                            (self.obstacle_list[ii][1] + self.obstacle_list[ii][1])/2.0):
+                            rospy.loginfo('removed obstacle')
+                            del self.obstacle_list[jj]
+                        else:
+                            jj += 1
+                    jj += 1
+                ii += 1
+                jj = ii + 1
+            # rospy.loginfo('end condense')
+                
+
+
 
 
 class RRTNode(Pose):
