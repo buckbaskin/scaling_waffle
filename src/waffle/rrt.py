@@ -48,14 +48,19 @@ class ObstacleMap(object):
             # then there are no sub-maps
             self.obstacle_list.append((pose, radius,))
             if len(self.obstacle_list) > 300:
-                self.sub_divide()
+                try:
+                    self.sub_divide()
+                except RuntimeError as rte:
+                    rospy.loginfo('recursion depth exceeded add obstacle\n%s' % (rte,))
+                    return
+
         else:
             for vertical in ['top', 'middle', 'bottom']:
                 for horizontal in ['left', 'center', 'right']:
                     self.children[vertical][horizontal].add_obstacle(pose, radius)
 
     def sub_divide(self):
-        rospy.loginfo('sub_divide called, creating children + minx %f + maxx %f' % (self.minx, self.maxx,))
+        # rospy.loginfo('sub_divide called, creating children + minx %f + maxx %f' % (self.minx, self.maxx,))
         self.children = {'top':{'left':ObstacleMap(self.minx, self.midx,
                                     self.midy, self.maxy),
                                 'center': ObstacleMap(self.minx/2.0+self.midx/2.0, self.maxx/2.0+self.midx/2.0,
@@ -149,6 +154,28 @@ class RRT(dict):
         self.kd_max_depth = 0
         self.rrt_max_depth = 0
 
+    def add_node_kd_it(self, rrt_node_id, depth=0, compare_id=0):
+        while depth > 10000:
+            if depth % 2 == 0:
+                feature = 'x'
+            else:
+                feature = 'y'
+
+            if getattr(self[rrt_node_id].position, feature) < getattr(self[compare_id].position, feature):
+                side = 'kd_left'
+            else:
+                side = 'kd_right'
+
+            if getattr(self[compare_id], side) is None:
+                # if there is no child for the given node on this side
+                setattr(self[compare_id], side, rrt_node_id)
+                self[rrt_node_id].kd_parent = compare_id
+                return
+            else:
+                # if there is a child on this side, don't recursively call...
+                depth += 1
+                compare_id = getattr(self[compare_id], side)
+
     def add_node_kd(self, rrt_node_id, depth=0, compare_id=0):
         '''
         The no code repeating version of adding a node to a kd tree
@@ -170,7 +197,7 @@ class RRT(dict):
             return
         else:
             # if there is a child on this side, recursively call...
-            self.add_node_kd(rrt_node_id, depth+1, getattr(self[compare_id], side))
+            self.add_node_kd_it(rrt_node_id, depth+1, getattr(self[compare_id], side))
 
     def add_node_rrt(self, pose):
         # find its closest neighbor by id
@@ -178,7 +205,7 @@ class RRT(dict):
         self[self.next_id] = RRTNode(pose)
         self[self.next_id].rrt_parent = self.find_nearest_node(pose)
         self[self.next_id].rrt_children = []
-        self.add_node_kd(self.next_id)
+        self.add_node_kd_it(self.next_id)
         self.next_id += 1
         return self.next_id - 1
 
@@ -275,8 +302,34 @@ class RRT(dict):
                 self.add_node_rrt(expand_to_pose)
 
     def find_nearest_node(self, pose):
-        best_id, best_distance, depth = self.find_nearest_node_down(pose)
+        best_id, best_distance, depth = self.find_nearest_node_down_it(pose)
         return self.find_nearest_node_up(pose, best_id, depth, best_id, best_distance)
+
+    def find_nearest_node_down_it(self, pose, depth=0, root_index=0):
+        current_node = self[root_index]
+
+        while depth < 10000:
+            if (depth % 2) == 0:
+                feature = 'x'
+            else:
+                feature = 'y'
+
+            if getattr(pose.position, feature) < getattr(self[root_index].position, feature):
+                side = 'kd_left'
+            else:
+                side = 'kd_right'
+
+            if getattr(self[root_index], side) is None:
+                if depth > self.kd_max_depth:
+                    self.kd_max_depth = depth
+                    # rospy.loginfo('kd_max_depth %d' % (self.kd_max_depth,))
+                return (root_index, self.distance_function(self[root_index], pose), depth,)
+            else:
+                depth += 1
+                if getattr(self[root_index], side) is not None:
+                    root_index = getattr(self[root_index], side)
+                else:
+                    rospy.loginfo("I didn't return for some reason at %d" % (root_index,))
 
     def find_nearest_node_down(self, pose, depth=0, root_index=0):
         if (depth % 2) == 0:
@@ -377,23 +430,24 @@ class RRT(dict):
 
     def new_scan(self, from_pose, scan):
         # add in all the new obstacles
-        rospy.loginfo('new scan')
+        # rospy.loginfo('new scan')
         angle = scan.angle_min+quaternion_to_heading(from_pose.orientation)
 
-        rospy.loginfo('begin rotating through scan.ranges %d' % len(scan.ranges))
-        rospy.loginfo('pose x: %f y: %f' % (from_pose.position.x, from_pose.position.y,))
+        # rospy.loginfo('begin rotating through scan.ranges %d' % len(scan.ranges))
+        # rospy.loginfo('pose x: %f y: %f' % (from_pose.position.x, from_pose.position.y,))
         count = 0
         for reading in scan.ranges:
             count += 1
             if count % 10 == 0 or count > 90:
-                rospy.loginfo('scan range %d %f' % (count, reading,))
+                # rospy.loginfo('scan range %d %f' % (count, reading,))
+                pass
             # add a new obstacle
 
             if reading > scan.range_max - .01:
-                rospy.loginfo('scan max!')
+                # rospy.loginfo('scan max!')
                 continue
             if reading < scan.range_min + .01:
-                rospy.loginfo('scan min!')
+                # rospy.loginfo('scan min!')
                 continue
             x = from_pose.position.x + reading*cos(angle)
             y = from_pose.position.x + reading*sin(angle)
@@ -403,22 +457,22 @@ class RRT(dict):
             new_pose.position.x = x
             new_pose.position.y = y
 
-            rospy.loginfo('new obstacle: x: %f y: %f' % (x, y,))
+            # rospy.loginfo('new obstacle: x: %f y: %f' % (x, y,))
 
             self.obstacles.add_obstacle(deepcopy(new_pose), radius)
 
-            rospy.loginfo('end adding obstacle')
+            # rospy.loginfo('end adding obstacle')
 
             # check if I need to prune
-            self.prune_local(new_pose, radius, count >= 90)
+            self.prune_local(new_pose, radius)
 
-            rospy.loginfo('start prune local')
+            # rospy.loginfo('start prune local')
 
             angle += scan.angle_increment
 
         # check all of the points, especially nodes that might have edges
         #   passing by new obstacles
-        rospy.loginfo('prune recursive')
+        # rospy.loginfo('prune recursive')
         self.prune_recursive()
 
         # remove previously seen obstacles that are too close to existing
@@ -498,7 +552,7 @@ class RRT(dict):
         if self[node_id].kd_right is not None:
             self.readd_children_kd(self[node_id].kd_right)
 
-        self.add_node_kd(node_id)
+        self.add_node_kd_it(node_id)
 
     def remove_child_rrt(self, parent_id, child_id):
         # remove the given child from the given parent
