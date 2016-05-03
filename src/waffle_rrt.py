@@ -7,7 +7,7 @@ planning
 
 import rospy
 
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, PoseStamped
 from nav_msgs.msg import Odometry
 from scaling_waffle.srv import Plan, PlanResponse
 from sensor_msgs.msg import LaserScan
@@ -49,7 +49,9 @@ def plan_srv(dummy_srv):
 if __name__ == '__main__':
     rospy.init_node('waffle_rrt')
     RRT_SRV = rospy.Service('/rrt/plan', Plan, plan_srv)
-    RRT_SRV = rospy.Service('/rrt/reset', Plan, reset_root)
+    RRT_RESET = rospy.Service('/rrt/reset', Plan, reset_root)
+    RRT_VIS = rospy.Publisher('/rrt/visual', Odometry, queue_size=1)
+    CLASSIC_WAFFLE.RRT_VIS = RRT_VIS
     GOAL_SUB = rospy.Subscriber('/rrt/goal', Odometry, goal_cb)
     ODOM_SUB = rospy.Subscriber('/odom', Odometry, odom_cb)
     LASER_SUB = rospy.Subscriber('/base_scan', LaserScan, laser_cb)

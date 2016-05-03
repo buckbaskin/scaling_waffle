@@ -9,6 +9,7 @@ import random
 from collections import deque
 from copy import deepcopy
 from geometry_msgs.msg import Pose
+from nav_msgs.msg import Odometry
 from heapq import heappush, heappop
 from math import cos, sin
 # from sensor_msgs.msg import LaserScan
@@ -224,6 +225,12 @@ class RRT(dict):
             self.add_node_kd_it(rrt_node_id, depth+1, getattr(self[compare_id], side))
 
     def add_node_rrt(self, pose):
+        if hasattr(self, 'RRT_VIS') and self.RRT_VIS is not None:
+            ps = Odometry()
+            ps.pose.pose = pose
+            ps.header.frame_id = '/odom'
+            rospy.loginfo('publish odom')
+            self.RRT_VIS.publish(ps)
         # find its closest neighbor by id
         # set that to be its parent
         self[self.next_id] = RRTNode(pose)
@@ -340,7 +347,7 @@ class RRT(dict):
 
     def print_parent_chain(self, start_id):
         accum = 'print_parent_chain\n'
-        while start_id is not None:
+        while start_id is not None and not rospy.is_shutdown():
             accum += str(start_id)+'\n'
             if start_id == self[start_id].kd_parent:
                 rospy.loginfo('error, child is its own parent')
